@@ -1,112 +1,95 @@
 """
-Main entry point for the Telegram OTP Bot.
-Registers all command handlers and starts the bot.
+Main entry point for the Telegram Shop Bot.
+Registers all routers, middleware, and handles startup/shutdown.
 """
 
+import asyncio
 import logging
 import sys
 
-from telegram import Update
-from telegram.ext import Application, ContextTypes
-from telegram.constants import ParseMode
+from aiogram import Bot, Dispatcher
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 
 from config import BOT_TOKEN
-from api_client import api
+from database import init_db, close_db
+from middlewares.user_middleware import UserRegistrationMiddleware
+from services.lzt_api import lzt_api
 
-# Import handlers
-from handlers.start import start_handler
-from handlers.balance import balance_handler
-from handlers.telegram_service import (
-    tg_countries_handler,
-    tg_price_handler,
-    tg_order_handler,
-    tg_code_handler,
-)
-from handlers.whatsapp_service import (
-    wp_countries_handler,
-    wp_price_handler,
-    wp_order_handler,
-    wp_status_handler,
-    wp_cancel_handler,
-)
-from handlers.whatsapp2_service import (
-    wp2_countries_handler,
-    wp2_price_handler,
-    wp2_order_handler,
-    wp2_status_handler,
-    wp2_cancel_handler,
-)
+# Import routers
+from handlers.start import router as start_router
+from handlers.deposit import router as deposit_router
+from handlers.admin import router as admin_router
+from handlers.shop import router as shop_router
+from handlers.orders import router as orders_router
+from handlers.balance import router as balance_router
+from handlers.support import router as support_router
 
 # Configure logging
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle unhandled errors."""
-    logger.error("Exception while handling an update:", exc_info=context.error)
-
-    # Try to notify the user
-    if isinstance(update, Update) and update.message:
-        await update.message.reply_text(
-            "⚠️ <b>An unexpected error occurred.</b>\n\n"
-            "Please try again later or contact support.",
-            parse_mode=ParseMode.HTML,
-        )
+async def on_startup(bot: Bot):
+    """Startup hook - initialize database."""
+    logger.info("Starting bot...")
+    await init_db()
+    logger.info("Database initialized.")
+    me = await bot.get_me()
+    logger.info(f"Bot started: @{me.username}")
 
 
-async def post_shutdown(application: Application) -> None:
-    """Cleanup on shutdown - close API session."""
-    await api.close()
-    logger.info("Bot shutdown complete. API session closed.")
+async def on_shutdown(bot: Bot):
+    """Shutdown hook - cleanup."""
+    logger.info("Shutting down...")
+    await lzt_api.close()
+    await close_db()
+    logger.info("Cleanup complete.")
 
 
-def main() -> None:
-    """Start the bot."""
-    # Validate bot token
+async def main():
+    """Main function - create bot, register handlers, start polling."""
+    # Validate token
     if not BOT_TOKEN or BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
-        logger.error("BOT_TOKEN is not set! Please set it in .env file or environment variable.")
+        logger.error("BOT_TOKEN not set! Edit .env file.")
         sys.exit(1)
 
-    logger.info("Starting OTP Now Bot...")
+    # Create bot with HTML parse mode
+    bot = Bot(
+        token=BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
 
-    # Build application
-    application = Application.builder().token(BOT_TOKEN).post_shutdown(post_shutdown).build()
+    # Create dispatcher
+    dp = Dispatcher()
 
-    # Register handlers - Start & Balance
-    application.add_handler(start_handler)
-    application.add_handler(balance_handler)
+    # Register middleware
+    dp.message.middleware(UserRegistrationMiddleware())
+    dp.callback_query.middleware(UserRegistrationMiddleware())
 
-    # Register handlers - Telegram service
-    application.add_handler(tg_countries_handler)
-    application.add_handler(tg_price_handler)
-    application.add_handler(tg_order_handler)
-    application.add_handler(tg_code_handler)
+    # Register startup/shutdown hooks
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
 
-    # Register handlers - WhatsApp Server 1
-    application.add_handler(wp_countries_handler)
-    application.add_handler(wp_price_handler)
-    application.add_handler(wp_order_handler)
-    application.add_handler(wp_status_handler)
-    application.add_handler(wp_cancel_handler)
-
-    # Register handlers - WhatsApp Server 2
-    application.add_handler(wp2_countries_handler)
-    application.add_handler(wp2_price_handler)
-    application.add_handler(wp2_order_handler)
-    application.add_handler(wp2_status_handler)
-    application.add_handler(wp2_cancel_handler)
-
-    # Register error handler
-    application.add_error_handler(error_handler)
+    # Register routers (order matters for handler priority)
+    dp.include_router(start_router)
+    dp.include_router(deposit_router)
+    dp.include_router(admin_router)
+    dp.include_router(shop_router)
+    dp.include_router(orders_router)
+    dp.include_router(balance_router)
+    dp.include_router(support_router)
 
     # Start polling
     logger.info("Bot is running! Press Ctrl+C to stop.")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Bot stopped.")

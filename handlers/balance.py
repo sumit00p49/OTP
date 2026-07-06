@@ -1,28 +1,25 @@
 """
-Handler for /balance command.
-Checks and displays the current account balance.
+Handler for balance check.
 """
 
-from telegram import Update
-from telegram.ext import ContextTypes, CommandHandler
-from telegram.constants import ParseMode
+from aiogram import Router, F
+from aiogram.types import CallbackQuery
 
-from api_client import api, APIError
-from utils.formatter import format_balance, format_error
+from keyboards.inline import balance_keyboard
+from utils.formatters import format_balance
+from services.wallet import get_balance
 
-
-async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the /balance command - check account balance."""
-    try:
-        data = await api.check_balance()
-        msg = format_balance(data)
-    except APIError as e:
-        msg = format_error(f"Failed to check balance: {e.message}")
-    except Exception as e:
-        msg = format_error(f"Unexpected error: {str(e)}")
-
-    await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
+router = Router()
 
 
-# Export handler
-balance_handler = CommandHandler("balance", balance_command)
+@router.callback_query(F.data == "check_balance")
+async def check_balance_callback(callback: CallbackQuery):
+    """Show current wallet balance."""
+    balance = await get_balance(callback.from_user.id)
+
+    await callback.message.edit_text(
+        format_balance(balance),
+        reply_markup=balance_keyboard(),
+        parse_mode="HTML",
+    )
+    await callback.answer()
