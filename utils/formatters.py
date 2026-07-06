@@ -340,3 +340,27 @@ def format_support() -> str:
         "• Order ID (if relevant)\n"
         "• Screenshot of any issue"
     )
+
+
+
+def format_live_otp(code: str) -> str:
+    """Format a freshly fetched live OTP / Telegram login code."""
+    return (
+        "📲 <b>Live OTP Received!</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🔐 Code: <code>{code}</code>\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 Tap the code to copy. It expires quickly —\n"
+        "press <b>🔄 Get Live OTP</b> again for a fresh one."
+    )
+
+
+def format_otp_not_ready() -> str:
+    """Shown when no OTP is available yet."""
+    return (
+        "⏳ <b>No OTP Yet</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "No login code has arrived for this account yet.\n\n"
+        "💡 Trigger a login on the account, then press\n"
+        "<b>🔄 Get Live OTP</b> again in a few seconds."
+    )

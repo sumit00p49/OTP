@@ -37,8 +37,11 @@ USD_TO_INR = float(os.getenv("USD_TO_INR", "85.0"))
 RUB_TO_INR = float(os.getenv("RUB_TO_INR", "1.10"))
 EUR_TO_INR = float(os.getenv("EUR_TO_INR", "92.0"))
 
-# Profit markup added on top of the converted LZT price (percent).
-MARKUP_PERCENT = float(os.getenv("MARKUP_PERCENT", "30.0"))
+# Flat profit markup (INR) added on top of the converted LZT price.
+# e.g. 55 => user pays real price + ₹55.
+MARKUP_FLAT_INR = float(os.getenv("MARKUP_FLAT_INR", "55.0"))
+# Optional extra percentage markup (default 0 = flat markup only).
+MARKUP_PERCENT = float(os.getenv("MARKUP_PERCENT", "0.0"))
 
 # ==================== Pricing (fallback / fixed mode) ====================
 # Pricing mode: "dynamic" (real LZT price + markup) or "fixed" (flat INR).

@@ -10,6 +10,7 @@ from config import (
     RUB_TO_INR,
     EUR_TO_INR,
     MARKUP_PERCENT,
+    MARKUP_FLAT_INR,
 )
 
 # Map of currency code -> INR rate
@@ -38,10 +39,14 @@ def to_inr(amount: float, currency: str = "usd", apply_markup: bool = True) -> f
 
     Returns:
         INR price, rounded up to 2 decimals
+
+    Markup formula (when apply_markup): real_inr + (real_inr * percent%) + flat.
+    By default only the flat markup applies (percent defaults to 0), so the
+    user pays "real price + ₹MARKUP_FLAT_INR".
     """
     rate = get_rate(currency)
     inr = float(amount) * rate
     if apply_markup:
-        inr = inr * (1 + MARKUP_PERCENT / 100.0)
+        inr = inr * (1 + MARKUP_PERCENT / 100.0) + MARKUP_FLAT_INR
     # Round up to nearest 0.01 so we never sell below cost+markup
     return math.ceil(inr * 100) / 100.0

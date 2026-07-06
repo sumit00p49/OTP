@@ -121,9 +121,13 @@ def confirm_purchase_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def account_received_keyboard(order_id: str) -> InlineKeyboardMarkup:
-    """Buttons shown after account is delivered."""
+def account_received_keyboard(order_id: str, item_id: str = "") -> InlineKeyboardMarkup:
+    """Buttons shown after an account is delivered."""
     builder = InlineKeyboardBuilder()
+    if item_id:
+        builder.row(
+            InlineKeyboardButton(text="🔄 Get Live OTP", callback_data=f"get_otp:{item_id}")
+        )
     builder.row(
         InlineKeyboardButton(text="📋 Save to Orders", callback_data=f"save_order:{order_id}"),
         InlineKeyboardButton(text="🗑️ Account Received", callback_data="account_ack"),
@@ -170,9 +174,13 @@ def orders_list_keyboard(orders: list, page: int = 0, per_page: int = 5) -> Inli
     return builder.as_markup()
 
 
-def order_detail_keyboard(order_id: str) -> InlineKeyboardMarkup:
-    """Single order detail view."""
+def order_detail_keyboard(order_id: str, item_id: str = "") -> InlineKeyboardMarkup:
+    """Single order detail view with a live OTP button."""
     builder = InlineKeyboardBuilder()
+    if item_id:
+        builder.row(
+            InlineKeyboardButton(text="🔄 Get Live OTP", callback_data=f"get_otp:{item_id}")
+        )
     builder.row(
         InlineKeyboardButton(text="⬅️ Back to Orders", callback_data="my_orders")
     )

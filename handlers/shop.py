@@ -237,7 +237,7 @@ async def confirm_purchase(callback: CallbackQuery, state: FSMContext):
         await state.clear()
         await callback.message.edit_text(
             format_account_details(order_id, account_data, price_inr),
-            reply_markup=account_received_keyboard(order_id),
+            reply_markup=account_received_keyboard(order_id, str(item_id)),
             parse_mode="HTML",
         )
 

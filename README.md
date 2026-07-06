@@ -60,13 +60,22 @@ This bot integrates the **official LZT Market API** (`https://prod-api.lzt.marke
 
 ### 💱 Pricing & Currency
 
-LZT prices accounts in **RUB/USD/EUR**, but the wallet is **INR**. The bot:
+LZT prices accounts in **RUB/USD/EUR**, but the wallet is **INR**. The bot is
+**fully automatic** — buying from your store API deducts your panel balance,
+and the user's wallet is charged in INR. On each purchase the bot:
 1. Searches live LZT stock for the chosen country/quality
 2. Converts the real price to INR using rates in `.env` (`USD_TO_INR`, `RUB_TO_INR`, `EUR_TO_INR`)
-3. Adds your `MARKUP_PERCENT` profit margin
-4. Shows the final INR price for confirmation before charging the wallet
+3. Adds a **flat markup** — user pays `real price + ₹MARKUP_FLAT_INR` (default ₹55)
+4. Shows the final INR price for confirmation, then charges the wallet and delivers
 
 Set `PRICE_MODE=fixed` to charge flat `CHEAP_ACC_PRICE` / `GOOD_ACC_PRICE` instead.
+(Optionally add a % markup via `MARKUP_PERCENT`; default 0 = flat only.)
+
+### 📲 Live OTP
+
+Delivered accounts and every order in **My Orders** include a **🔄 Get Live OTP**
+button. Pressing it fetches the latest Telegram login code on demand via
+`GET /{item_id}/telegram-login-code`, so buyers can log in anytime without support.
 Telegram accounts are delivered as **TData/session + login code** (not a plain password).
 
 ## 📋 Commands & Flow

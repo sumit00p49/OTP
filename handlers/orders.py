@@ -2,13 +2,22 @@
 Handler for order history and order details.
 """
 
+import logging
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
 from keyboards.inline import orders_list_keyboard, order_detail_keyboard, back_to_main_keyboard
-from utils.formatters import format_order_list_header, format_order_detail, format_no_orders
+from utils.formatters import (
+    format_order_list_header,
+    format_order_detail,
+    format_no_orders,
+    format_live_otp,
+    format_otp_not_ready,
+)
 from services.order_service import get_user_orders, get_order_details, get_user_order_count
+from services.lzt_api import lzt_api, LZTAPIError
 
+logger = logging.getLogger(__name__)
 router = Router()
 
 
@@ -66,9 +75,40 @@ async def order_detail(callback: CallbackQuery):
         await callback.answer("❌ Order not found", show_alert=True)
         return
 
+    item_id = str(order.get("lzt_item_id", "") or "")
     await callback.message.edit_text(
         format_order_detail(order),
-        reply_markup=order_detail_keyboard(order_id),
+        reply_markup=order_detail_keyboard(order_id, item_id),
         parse_mode="HTML",
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("get_otp:"))
+async def get_live_otp(callback: CallbackQuery):
+    """Fetch the latest live OTP / Telegram login code for an account."""
+    item_id = callback.data.replace("get_otp:", "")
+    if not item_id:
+        await callback.answer("❌ Invalid account.", show_alert=True)
+        return
+
+    await callback.answer("🔄 Fetching live OTP...")
+
+    try:
+        code = await lzt_api.get_telegram_login_code(item_id)
+    except LZTAPIError as e:
+        logger.warning("OTP fetch failed for item %s: %s", item_id, e.message)
+        await callback.message.answer(
+            format_otp_not_ready(), parse_mode="HTML"
+        )
+        return
+
+    if code:
+        # Send as a fresh, copyable message (each fetch is a new live code)
+        await callback.message.answer(
+            format_live_otp(code), parse_mode="HTML"
+        )
+    else:
+        await callback.message.answer(
+            format_otp_not_ready(), parse_mode="HTML"
+        )
