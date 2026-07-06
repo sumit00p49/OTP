@@ -109,14 +109,11 @@ def shop_country_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def confirm_purchase_keyboard(quality: str, country: str, price: float) -> InlineKeyboardMarkup:
-    """Confirm purchase button."""
+def confirm_purchase_keyboard() -> InlineKeyboardMarkup:
+    """Confirm purchase button. The pending purchase is stored in FSM state."""
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(
-            text=f"✅ Buy Now (₹{price:.2f})",
-            callback_data=f"confirm_buy:{quality}:{country}",
-        )
+        InlineKeyboardButton(text="✅ Confirm & Buy", callback_data="confirm_buy_pending")
     )
     builder.row(
         InlineKeyboardButton(text="⬅️ Back", callback_data="shop_main")

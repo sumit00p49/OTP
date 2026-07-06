@@ -34,10 +34,21 @@ logger = logging.getLogger(__name__)
 
 
 async def on_startup(bot: Bot):
-    """Startup hook - initialize database."""
+    """Startup hook - initialize database and verify APIs."""
     logger.info("Starting bot...")
     await init_db()
     logger.info("Database initialized.")
+
+    # Best-effort LZT API key verification
+    try:
+        balance = await lzt_api.get_seller_balance()
+        if balance is not None:
+            logger.info(f"LZT API connected. Seller balance: {balance}")
+        else:
+            logger.warning("LZT API reachable but balance unavailable. Check LZT_API_KEY.")
+    except Exception as e:
+        logger.warning(f"LZT API check failed (bot will still run): {e}")
+
     me = await bot.get_me()
     logger.info(f"Bot started: @{me.username}")
 

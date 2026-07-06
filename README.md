@@ -32,7 +32,7 @@ cp .env.example .env
 Edit `.env` with your credentials:
 ```env
 BOT_TOKEN=your_bot_token_from_botfather
-LZT_API_KEY=your_lzt_market_api_key
+LZT_API_KEY=your_lzt_market_api_key   # from https://lzt.market/account/api
 ADMIN_IDS=your_telegram_user_id
 ADMIN_GROUP_ID=your_admin_group_id
 ```
@@ -42,6 +42,32 @@ ADMIN_GROUP_ID=your_admin_group_id
 ```bash
 python bot.py
 ```
+
+## 🔑 LZT Market API
+
+This bot integrates the **official LZT Market API** (`https://prod-api.lzt.market`).
+
+| Purpose | Endpoint |
+|---------|----------|
+| Seller balance | `GET /me` |
+| Search Telegram stock | `GET /telegram` (`country[]`, `origin[]`, `order_by`) |
+| Buy (atomic) | `POST /{item_id}/fast-buy` (with `price` guard) |
+| Buy (safe) | `POST /{item_id}/reserve` → `POST /{item_id}/confirm-buy` |
+| Login code | `GET /{item_id}/telegram-login-code` |
+
+- Auth header: `Authorization: Bearer <LZT_API_KEY>`
+- Set `BUY_METHOD=fastbuy` (default) or `BUY_METHOD=reserve` in `.env`.
+
+### 💱 Pricing & Currency
+
+LZT prices accounts in **RUB/USD/EUR**, but the wallet is **INR**. The bot:
+1. Searches live LZT stock for the chosen country/quality
+2. Converts the real price to INR using rates in `.env` (`USD_TO_INR`, `RUB_TO_INR`, `EUR_TO_INR`)
+3. Adds your `MARKUP_PERCENT` profit margin
+4. Shows the final INR price for confirmation before charging the wallet
+
+Set `PRICE_MODE=fixed` to charge flat `CHEAP_ACC_PRICE` / `GOOD_ACC_PRICE` instead.
+Telegram accounts are delivered as **TData/session + login code** (not a plain password).
 
 ## 📋 Commands & Flow
 

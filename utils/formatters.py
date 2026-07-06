@@ -136,16 +136,45 @@ def format_shop_quality() -> str:
     )
 
 
-def format_shop_country(quality: str, price: float) -> str:
-    """Format country selection."""
+def format_shop_country(quality: str) -> str:
+    """Format country selection. Price is quoted live after selection."""
     quality_label = "⭐ Good Quality" if quality == "good" else "🎣 Cheap"
     return (
         f"🌍 <b>Select a Region</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"📦 Quality: {quality_label}\n"
-        f"💵 Price: <b>₹{price:.2f}</b>\n\n"
+        "💵 Price: <i>quoted live after you pick a country</i>\n\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
         "⚡ Choose a country:"
+    )
+
+
+def format_purchase_confirm(quality: str, country: str, price_inr: float, balance: float) -> str:
+    """Confirmation shown after a live stock quote."""
+    quality_label = "⭐ Good Quality" if quality == "good" else "🎣 Cheap"
+    country_label = "🌐 Random" if str(country).upper() == "RANDOM" else str(country).upper()
+    return (
+        "🛒 <b>Confirm Purchase</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"📦 Quality: {quality_label}\n"
+        f"🌍 Country: {country_label}\n"
+        f"💵 Price: <b>₹{price_inr:.2f}</b>\n"
+        f"💳 Your Balance: ₹{balance:.2f}\n\n"
+        "⚠️ <b>NO REFUNDS IN ANY CASE.</b>\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "⚡ Confirm to buy this account:"
+    )
+
+
+def format_out_of_stock(country: str) -> str:
+    """Out of stock message."""
+    country_label = "this region" if str(country).upper() == "RANDOM" else str(country).upper()
+    return (
+        "❌ <b>Out of Stock</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"No accounts available for <b>{country_label}</b> right now.\n\n"
+        "💡 Try another country or check back later.\n"
+        "✅ No money was deducted."
     )
 
 
@@ -181,10 +210,13 @@ def format_purchase_processing() -> str:
 def format_account_details(
     order_id: str, account_data: dict, price: float
 ) -> str:
-    """Format purchased account details."""
+    """Format purchased Telegram account details."""
     phone = account_data.get("phone", account_data.get("email", "N/A"))
     password = account_data.get("password", "N/A")
     twofa = account_data.get("2fa", account_data.get("totp", ""))
+    login_code = account_data.get("login_code", "")
+    item_id = account_data.get("item_id", "")
+    has_tdata = account_data.get("has_tdata", False)
 
     msg = (
         "✅ <b>Purchase Successful!</b>\n"
@@ -192,15 +224,23 @@ def format_account_details(
         f"🆔 <b>Order:</b> {order_id}\n"
         f"💵 <b>Paid:</b> ₹{price:.2f}\n\n"
         "📱 <b>Account Details:</b>\n"
-        f"🔑 Phone/Email: <code>{phone}</code>\n"
-        f"🔓 Password: <code>{password}</code>\n"
+        f"🔑 Phone: <code>{phone}</code>\n"
     )
-
+    if password and password != "N/A":
+        msg += f"🔓 Password: <code>{password}</code>\n"
     if twofa:
         msg += f"🔐 2FA Code: <code>{twofa}</code>\n"
+    if login_code:
+        msg += f"📲 Login Code: <code>{login_code}</code>\n"
+    if has_tdata and item_id:
+        msg += (
+            f"💾 TData/Session: download from LZT\n"
+            f"    <code>https://lzt.market/{item_id}/</code>\n"
+        )
 
     msg += (
         "\n━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 Login via TData or request a fresh code with the phone.\n"
         "⚠️ Save these details! No refunds."
     )
     return msg
@@ -248,6 +288,9 @@ def format_order_detail(order: dict) -> str:
     phone = account_data.get("phone", account_data.get("email", "N/A"))
     password = account_data.get("password", "N/A")
     twofa = account_data.get("2fa", account_data.get("totp", ""))
+    login_code = account_data.get("login_code", "")
+    item_id = account_data.get("item_id", "")
+    has_tdata = account_data.get("has_tdata", False)
 
     msg = (
         f"📋 <b>Order Details</b>\n"
@@ -258,12 +301,16 @@ def format_order_detail(order: dict) -> str:
         f"🌍 Country: {country}\n"
         f"📅 Date: {date}\n\n"
         "📱 <b>Account Info:</b>\n"
-        f"🔑 Phone/Email: <code>{phone}</code>\n"
-        f"🔓 Password: <code>{password}</code>\n"
+        f"🔑 Phone: <code>{phone}</code>\n"
     )
-
+    if password and password != "N/A":
+        msg += f"🔓 Password: <code>{password}</code>\n"
     if twofa:
         msg += f"🔐 2FA: <code>{twofa}</code>\n"
+    if login_code:
+        msg += f"📲 Login Code: <code>{login_code}</code>\n"
+    if has_tdata and item_id:
+        msg += f"💾 TData: <code>https://lzt.market/{item_id}/</code>\n"
 
     msg += "\n━━━━━━━━━━━━━━━━━━━━━"
     return msg
