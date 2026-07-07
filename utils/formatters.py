@@ -198,32 +198,17 @@ def format_balance(balance: float) -> str:
 # ==================== Deposit ====================
 
 def format_deposit_info(upi_id: str, upi_name: str) -> str:
-    """Format deposit instructions with premium styled box design."""
+    """Format deposit instructions with small caps styled text."""
     return (
-        "╔═══════════════════════════╗\n"
-        "║     💰 𝗗𝗘𝗣𝗢𝗦𝗜𝗧 𝗙𝗨𝗡𝗗𝗦     ║\n"
-        "╚═══════════════════════════╝\n"
+        "💰 ᴅᴇᴘᴏsɪᴛ ғᴜɴᴅs\n"
         "\n"
-        "    ╭─────────────╮\n"
-        "    │  💳 𝗨𝗣𝗜 𝗜𝗗  │\n"
-        "    ╰─────────────╯\n"
-        f"    📲 <code>{upi_id}</code>\n"
+        f"📲 ᴜᴘɪ ɪᴅ: <code>{upi_id}</code>\n"
+        f"👤 ɴᴀᴍᴇ: ʙʜᴀʀᴀᴛ ʟᴀʟ ɢᴜᴘᴛᴀ\n"
         "\n"
-        "    ╭─────────────╮\n"
-        "    │  👤 𝗡𝗔𝗠𝗘    │\n"
-        "    ╰─────────────╯\n"
-        f"    🏷️ {upi_name}\n"
-        "\n"
-        " ───────────────────────────\n"
-        "\n"
-        "  🅢🅣🅔🅟 ①  Send money via UPI\n"
-        "  🅢🅣🅔🅟 ②  Tap \"𝗠𝗮𝗸𝗲 𝗗𝗲𝗽𝗼𝘀𝗶𝘁\"\n"
-        "  🅢🅣🅔🅟 ③  Upload screenshot\n"
-        "  🅢🅣🅔🅟 ④  Admin approval ✅\n"
-        "\n"
-        " ───────────────────────────\n"
-        "\n"
-        "  ⚡ 𝗕𝗮𝗹𝗮𝗻𝗰𝗲 𝗮𝗱𝗱𝗲𝗱 𝗶𝗻𝘀𝘁𝗮𝗻𝘁𝗹𝘆!\n"
+        "1. sᴇɴᴅ ᴍᴏɴᴇʏ ᴠɪᴀ ᴜᴘɪ\n"
+        "2. ᴛᴀᴘ ᴍᴀᴋᴇ ᴅᴇᴘᴏsɪᴛ ᴀɴᴅ ᴇɴᴛᴇʀ ᴀᴍᴏᴜɴᴛ\n"
+        "3. ᴜᴘʟᴏᴀᴅ ᴘᴀʏᴍᴇɴᴛ sᴄʀᴇᴇɴsʜᴏᴛ\n"
+        "4. ᴀᴅᴍɪɴ ᴀᴘᴘʀᴏᴠᴇs → ʙᴀʟᴀɴᴄᴇ ᴀᴅᴅᴇᴅ 🎉\n"
     )
 
 

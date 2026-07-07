@@ -12,9 +12,8 @@ import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
-from aiogram.types import URLInputFile
 
-from config import UPI_ID, UPI_NAME, UPI_QR_URL, MIN_DEPOSIT, ADMIN_GROUP_ID, ADMIN_IDS
+from config import UPI_ID, UPI_NAME, MIN_DEPOSIT, ADMIN_GROUP_ID, ADMIN_IDS
 from states.deposit_states import DepositStates
 from keyboards.inline import (
     deposit_menu_keyboard,
@@ -35,32 +34,15 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-def _get_qr_url() -> str:
-    """Get UPI QR code URL. Uses custom URL or generates via free API."""
-    if UPI_QR_URL:
-        return UPI_QR_URL
-    # Auto-generate QR via a free API (upi://pay link encoded as QR)
-    upi_link = f"upi://pay?pa={UPI_ID}&pn={UPI_NAME.replace(' ', '%20')}&cu=INR"
-    return f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_link}"
-
-
 @router.callback_query(F.data == "deposit_start")
 async def deposit_start(callback: CallbackQuery, state: FSMContext):
-    """Show deposit instructions with UPI QR code."""
+    """Show deposit instructions (text only, no QR)."""
     await state.clear()
 
-    qr_url = _get_qr_url()
     deposit_text = format_deposit_info(UPI_ID, UPI_NAME)
 
-    # Delete old message and send new one with QR photo
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-
-    await callback.message.answer_photo(
-        photo=URLInputFile(qr_url),
-        caption=deposit_text,
+    await callback.message.edit_text(
+        deposit_text,
         reply_markup=deposit_menu_keyboard(),
         parse_mode="HTML",
     )
