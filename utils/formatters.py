@@ -1,116 +1,27 @@
 """
 Message formatting helpers with rich emojis.
 Simplified for India-only TG Premium accounts at fixed ₹60.
-Supports Telegram Premium custom emojis via entities.
+Uses standard Unicode emojis (works without Telegram Premium).
 """
 
 import json
-from aiogram.types import MessageEntity
 
 
-# ==================== Custom Emoji IDs ====================
-# Get custom emoji IDs by sending them to @RawDataBot
-# Change these to your preferred premium emojis
-EMOJI_STAR = "6030445631921721471"       # ✨ animated star
-EMOJI_LIGHTNING = "6030445631921721471"   # ⚡ lightning
-EMOJI_LOCK = "6030445631921721471"       # 🔐 lock
-EMOJI_ACTIVE = "6030445631921721471"     # ⭐ active status
-
-
-def build_welcome_entities(first_name: str, balance: float) -> tuple[str, list[MessageEntity]]:
-    """
-    Build the welcome message with Telegram Premium custom emojis.
-    Returns (text, entities) tuple — send WITHOUT parse_mode.
-
-    Important: Telegram counts offsets in UTF-16 code units.
-    Emojis like ✨⚡🔐⭐ are each 1 character in Python but
-    may be 2 UTF-16 units. We compute offsets properly.
-    """
-    lines = [
-        f"👋 Welcome, {first_name}!\n",
-        "\n",
-        "✨ 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙏𝙚𝙡𝙚𝙜𝙧𝙖𝙢 𝙄𝘿𝙨\n",
-        "✨ 𝙑𝙞𝙧𝙩𝙪𝙖𝙡 𝙉𝙪𝙢𝙗𝙚𝙧 𝙑𝙚𝙧𝙞𝙛𝙞𝙚𝙙\n",
-        "✨ 𝘽𝙪𝙡𝙠 𝙊𝙧𝙙𝙚𝙧 𝙊𝙛𝙛𝙚𝙧𝙨\n",
-        "✨ 𝙄𝙣𝙨𝙩𝙖𝙣𝙩 𝘿𝙚𝙡𝙞𝙫𝙚𝙧𝙮\n",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n",
-        "    ⚡ 𝟮𝟰/𝟳  •  🔐 𝟭𝟬𝟬% 𝗦𝗮𝗳𝗲\n",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n",
-        "\n",
-        f"💳 Balance: ₹{balance:.2f}\n",
-        f"📦 Status: ⭐ Active\n",
-    ]
-
-    text = "".join(lines)
-    entities = []
-
-    # Map of emoji chars -> custom_emoji_id
-    emoji_map = {
-        "✨": EMOJI_STAR,
-        "⚡": EMOJI_LIGHTNING,
-        "🔐": EMOJI_LOCK,
-        "⭐": EMOJI_ACTIVE,
-    }
-
-    # Calculate UTF-16 offsets (Telegram uses UTF-16 for entity offsets)
-    utf16_offset = 0
-    for char in text:
-        # Check if this char needs a custom emoji entity
-        if char in emoji_map:
-            # Length of this emoji in UTF-16 units
-            char_utf16_len = len(char.encode("utf-16-le")) // 2
-            entities.append(MessageEntity(
-                type="custom_emoji",
-                offset=utf16_offset,
-                length=char_utf16_len,
-                custom_emoji_id=emoji_map[char],
-            ))
-        # Advance the UTF-16 offset
-        utf16_offset += len(char.encode("utf-16-le")) // 2
-
-    # Bold for "Welcome, {name}!"
-    welcome_str = f"Welcome, {first_name}!"
-    w_start = _utf16_offset_of(text, text.find(welcome_str))
-    if w_start >= 0:
-        w_len = _utf16_len(welcome_str)
-        entities.append(MessageEntity(type="bold", offset=w_start, length=w_len))
-
-    # Bold for balance amount
-    bal_str = f"₹{balance:.2f}"
-    b_idx = text.find(bal_str)
-    if b_idx >= 0:
-        b_start = _utf16_offset_of(text, b_idx)
-        b_len = _utf16_len(bal_str)
-        entities.append(MessageEntity(type="bold", offset=b_start, length=b_len))
-
-    return text, entities
-
-
-def _utf16_len(s: str) -> int:
-    """Get the length of a string in UTF-16 code units."""
-    return len(s.encode("utf-16-le")) // 2
-
-
-def _utf16_offset_of(text: str, char_index: int) -> int:
-    """Convert a Python string index to UTF-16 offset."""
-    if char_index < 0:
-        return -1
-    return len(text[:char_index].encode("utf-16-le")) // 2
-
-
-def format_welcome_text(first_name: str, balance: float) -> str:
-    """Fallback plain-text welcome (used where entities aren't supported)."""
+def format_welcome(first_name: str, balance: float) -> str:
+    """Format the welcome/start message with premium branding."""
     return (
-        f"👋 Welcome, {first_name}!\n\n"
+        f"👋 <b>Welcome, {first_name}!</b>\n"
+        "\n"
         "✨ 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙏𝙚𝙡𝙚𝙜𝙧𝙖𝙢 𝙄𝘿𝙨\n"
         "✨ 𝙑𝙞𝙧𝙩𝙪𝙖𝙡 𝙉𝙪𝙢𝙗𝙚𝙧 𝙑𝙚𝙧𝙞𝙛𝙞𝙚𝙙\n"
         "✨ 𝘽𝙪𝙡𝙠 𝙊𝙧𝙙𝙚𝙧 𝙊𝙛𝙛𝙚𝙧𝙨\n"
         "✨ 𝙄𝙣𝙨𝙩𝙖𝙣𝙩 𝘿𝙚𝙡𝙞𝙫𝙚𝙧𝙮\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         "    ⚡ 𝟮𝟰/𝟳  •  🔐 𝟭𝟬𝟬% 𝗦𝗮𝗳𝗲\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"💳 Balance: ₹{balance:.2f}\n"
-        "📦 Status: ⭐ Active"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "\n"
+        f"💳 <b>Balance:</b> ₹{balance:.2f}\n"
+        "📦 <b>Status:</b> ✅ Active\n"
     )
 
 
