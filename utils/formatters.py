@@ -20,6 +20,67 @@ def format_welcome(first_name: str, balance: float) -> str:
     )
 
 
+def format_quantity_select(price_per: float) -> str:
+    """Quantity selection screen."""
+    return (
+        "📱✨ <b>Buy India TG Accounts</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🇮🇳 <b>Country:</b> India (+91)\n"
+        "🔐 <b>Includes:</b> Password + Login Code\n"
+        f"💵 <b>Price:</b> ₹{price_per:.0f} per account\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "📦 <b>How many accounts do you want?</b>"
+    )
+
+
+def format_buy_confirm(qty: int, price_per: float, total: float, balance: float) -> str:
+    """Purchase confirmation with quantity & total."""
+    return (
+        "🛒 <b>Confirm Purchase</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"📦 <b>Quantity:</b> {qty} account{'s' if qty > 1 else ''}\n"
+        f"💵 <b>Price:</b> {qty} × ₹{price_per:.0f} = <b>₹{total:.0f}</b>\n"
+        f"💳 <b>Balance:</b> ₹{balance:.2f}\n\n"
+        "⚠️ <b>NO REFUNDS AFTER PURCHASE</b>\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "⚡ Click below to pay:"
+    )
+
+
+def format_purchase_processing_multi(qty: int) -> str:
+    """Multi-account purchase in progress."""
+    return (
+        f"⏳ <b>Buying {qty} account{'s' if qty > 1 else ''}...</b>\n\n"
+        "🔄 Fetching from store. Please wait.\n"
+        "This may take 10-30 seconds."
+    )
+
+
+def format_multi_account_details(delivered: list, price_per: float, header: str = "") -> str:
+    """Summary for multiple accounts delivered."""
+    total = price_per * len(delivered)
+    msg = header or ""
+    msg += (
+        f"✅ <b>{len(delivered)} Account{'s' if len(delivered) > 1 else ''} Delivered!</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"💵 <b>Total Paid:</b> ₹{total:.0f}\n\n"
+        "📱 Accounts sent as separate messages below ⬇️\n"
+        "Each has a <b>🔄 Get Live OTP</b> button.\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 All orders saved in 📋 My Orders."
+    )
+    return msg
+
+
+def format_partial_delivery(delivered: int, failed: int, refund: float) -> str:
+    """Header when some accounts failed."""
+    return (
+        f"⚠️ <b>Partial Delivery</b>\n"
+        f"✅ Delivered: {delivered} | ❌ Failed: {failed}\n"
+        f"💵 Refund for failed: <b>₹{refund:.0f}</b> (auto-credited)\n\n"
+    )
+
+
 def format_buy_preview(price: float, balance: float) -> str:
     """Purchase confirmation screen."""
     return (

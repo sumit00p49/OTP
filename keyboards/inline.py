@@ -32,19 +32,40 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-# ==================== Buy Confirmation ====================
+# ==================== Buy / Quantity ====================
 
-def buy_confirm_keyboard() -> InlineKeyboardMarkup:
-    """Confirm purchase button."""
+def quantity_select_keyboard() -> InlineKeyboardMarkup:
+    """Quantity selection grid."""
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(
-            text=f"✅ Confirm Buy — ₹{ACCOUNT_PRICE_INR:.0f}",
-            callback_data="confirm_buy",
-        )
+        InlineKeyboardButton(text="1️⃣", callback_data="qty:1"),
+        InlineKeyboardButton(text="2️⃣", callback_data="qty:2"),
+        InlineKeyboardButton(text="3️⃣", callback_data="qty:3"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="5️⃣", callback_data="qty:5"),
+        InlineKeyboardButton(text="🔟", callback_data="qty:10"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="✏️ Custom Quantity", callback_data="qty:custom")
     )
     builder.row(
         InlineKeyboardButton(text="⬅️ Back", callback_data="back_main")
+    )
+    return builder.as_markup()
+
+
+def buy_confirm_keyboard(qty: int, total: float) -> InlineKeyboardMarkup:
+    """Confirm purchase with quantity & total."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text=f"✅ Pay ₹{total:.0f} for {qty} acc",
+            callback_data=f"confirm_buy:{qty}",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(text="⬅️ Back", callback_data="buy_account")
     )
     return builder.as_markup()
 
