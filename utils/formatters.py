@@ -1,15 +1,108 @@
 """
 Message formatting helpers with rich emojis.
 Simplified for India-only TG Premium accounts at fixed ₹60.
+Supports Telegram Premium custom emojis via entities.
 """
 
 import json
+from aiogram.types import MessageEntity
 
 
-def format_welcome(first_name: str, balance: float) -> str:
-    """Format the welcome/start message with premium branding."""
+# ==================== Custom Emoji IDs ====================
+# You can find custom emoji IDs by sending them to @RawDataBot
+# These are Telegram Premium animated emojis
+EMOJI_STAR = "5368324170671202286"       # ✨ animated star
+EMOJI_LIGHTNING = "5368324170671202286"   # ⚡ lightning
+EMOJI_LOCK = "5367811040498488737"        # 🔐 lock
+EMOJI_CHECK = "5368324170671202286"      # ✅ check
+
+
+def build_welcome_entities(first_name: str, balance: float) -> tuple[str, list[MessageEntity]]:
+    """
+    Build the welcome message with Telegram Premium custom emojis.
+    Returns (text, entities) tuple for use without parse_mode.
+    """
+    # Build the text with placeholder emojis (single char each)
+    lines = [
+        f"👋 Welcome, {first_name}!\n",
+        "\n",
+        "✨ 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙏𝙚𝙡𝙚𝙜𝙧𝙖𝙢 𝙄𝘿𝙨\n",
+        "✨ 𝙑𝙞𝙧𝙩𝙪𝙖𝙡 𝙉𝙪𝙢𝙗𝙚𝙧 𝙑𝙚𝙧𝙞𝙛𝙞𝙚𝙙\n",
+        "✨ 𝘽𝙪𝙡𝙠 𝙊𝙧𝙙𝙚𝙧 𝙊𝙛𝙛𝙚𝙧𝙨\n",
+        "✨ 𝙄𝙣𝙨𝙩𝙖𝙣𝙩 𝘿𝙚𝙡𝙞𝙫𝙚𝙧𝙮\n",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n",
+        "    ⚡ 𝟮𝟰/𝟳  •  🔐 𝟭𝟬𝟬% 𝗦𝗮𝗳𝗲\n",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n",
+        "\n",
+        f"💳 Balance: ₹{balance:.2f}\n",
+        f"📦 Status: ⭐ Active\n",
+    ]
+
+    text = "".join(lines)
+
+    # Build entities for custom emojis
+    # Find positions of ✨ characters and replace with custom emoji entities
+    entities = []
+
+    # Find all ✨ positions
+    offset = 0
+    for i, char in enumerate(text):
+        if char == "✨":
+            entities.append(MessageEntity(
+                type="custom_emoji",
+                offset=i,
+                length=1,
+                custom_emoji_id=EMOJI_STAR,
+            ))
+        elif char == "⚡":
+            entities.append(MessageEntity(
+                type="custom_emoji",
+                offset=i,
+                length=1,
+                custom_emoji_id=EMOJI_LIGHTNING,
+            ))
+        elif char == "🔐":
+            entities.append(MessageEntity(
+                type="custom_emoji",
+                offset=i,
+                length=1,
+                custom_emoji_id=EMOJI_LOCK,
+            ))
+        elif char == "⭐":
+            entities.append(MessageEntity(
+                type="custom_emoji",
+                offset=i,
+                length=1,
+                custom_emoji_id=EMOJI_CHECK,
+            ))
+
+    # Add bold for "Welcome, name"
+    welcome_text = f"Welcome, {first_name}!"
+    welcome_offset = text.find(welcome_text)
+    if welcome_offset >= 0:
+        entities.append(MessageEntity(
+            type="bold",
+            offset=welcome_offset,
+            length=len(welcome_text),
+        ))
+
+    # Bold for Balance amount
+    bal_text = f"₹{balance:.2f}"
+    bal_offset = text.find(bal_text)
+    if bal_offset >= 0:
+        entities.append(MessageEntity(
+            type="bold",
+            offset=bal_offset,
+            length=len(bal_text),
+        ))
+
+    return text, entities
+
+
+def format_welcome_text(first_name: str, balance: float) -> str:
+    """Fallback plain-text welcome (used where entities aren't supported)."""
     return (
-        f"👋 <b>Welcome, {first_name}!</b>\n\n"
+        f"👋 Welcome, {first_name}!\n\n"
         "✨ 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙏𝙚𝙡𝙚𝙜𝙧𝙖𝙢 𝙄𝘿𝙨\n"
         "✨ 𝙑𝙞𝙧𝙩𝙪𝙖𝙡 𝙉𝙪𝙢𝙗𝙚𝙧 𝙑𝙚𝙧𝙞𝙛𝙞𝙚𝙙\n"
         "✨ 𝘽𝙪𝙡𝙠 𝙊𝙧𝙙𝙚𝙧 𝙊𝙛𝙛𝙚𝙧𝙨\n"
@@ -17,8 +110,8 @@ def format_welcome(first_name: str, balance: float) -> str:
         "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         "    ⚡ 𝟮𝟰/𝟳  •  🔐 𝟭𝟬𝟬% 𝗦𝗮𝗳𝗲\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"💳 <b>Balance:</b> ₹{balance:.2f}\n"
-        "📦 <b>Status:</b> ✅ Active\n"
+        f"💳 Balance: ₹{balance:.2f}\n"
+        "📦 Status: ⭐ Active"
     )
 
 
