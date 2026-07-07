@@ -1,10 +1,11 @@
 """
 All inline keyboard builders for the bot.
-Organized by feature: main menu, deposit, shop, orders, etc.
+Simplified: India-only TG Premium accounts at fixed ₹60.
 """
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from config import ACCOUNT_PRICE_INR
 
 
 # ==================== Main Menu ====================
@@ -13,7 +14,10 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     """Main menu inline keyboard."""
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text="📱 Buy TG Accounts", callback_data="shop_main")
+        InlineKeyboardButton(
+            text=f"📱✨ Buy TG Premium Acc — ₹{ACCOUNT_PRICE_INR:.0f}",
+            callback_data="buy_account",
+        )
     )
     builder.row(
         InlineKeyboardButton(text="💰 Deposit Funds", callback_data="deposit_start"),
@@ -28,10 +32,41 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+# ==================== Buy Confirmation ====================
+
+def buy_confirm_keyboard() -> InlineKeyboardMarkup:
+    """Confirm purchase button."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text=f"✅ Confirm Buy — ₹{ACCOUNT_PRICE_INR:.0f}",
+            callback_data="confirm_buy",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(text="⬅️ Back", callback_data="back_main")
+    )
+    return builder.as_markup()
+
+
+def account_delivered_keyboard(order_id: str, item_id: str = "") -> InlineKeyboardMarkup:
+    """Buttons shown after account is delivered."""
+    builder = InlineKeyboardBuilder()
+    if item_id:
+        builder.row(
+            InlineKeyboardButton(text="🔄 Get Live OTP", callback_data=f"get_otp:{item_id}")
+        )
+    builder.row(
+        InlineKeyboardButton(text="📱✨ Buy Another", callback_data="buy_account"),
+        InlineKeyboardButton(text="🏠 Menu", callback_data="back_main"),
+    )
+    return builder.as_markup()
+
+
 # ==================== Deposit ====================
 
 def deposit_menu_keyboard() -> InlineKeyboardMarkup:
-    """Deposit info menu with Make Deposit and Back buttons."""
+    """Deposit info menu."""
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(text="💸 Make Deposit", callback_data="deposit_amount")
@@ -52,7 +87,7 @@ def deposit_cancel_keyboard() -> InlineKeyboardMarkup:
 
 
 def admin_deposit_keyboard(deposit_id: int, user_id: int, amount: float) -> InlineKeyboardMarkup:
-    """Admin approve/reject buttons for deposits."""
+    """Admin approve/reject buttons."""
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(
@@ -63,74 +98,6 @@ def admin_deposit_keyboard(deposit_id: int, user_id: int, amount: float) -> Inli
             text="❌ Reject",
             callback_data=f"admin_reject:{deposit_id}:{user_id}",
         ),
-    )
-    return builder.as_markup()
-
-
-# ==================== Shop ====================
-
-def shop_quality_keyboard() -> InlineKeyboardMarkup:
-    """Quality selection for TG accounts."""
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text="🎣 Cheap Acc", callback_data="quality_cheap"),
-        InlineKeyboardButton(text="⭐ Good Quality", callback_data="quality_good"),
-    )
-    builder.row(
-        InlineKeyboardButton(text="⬅️ Back", callback_data="back_main")
-    )
-    return builder.as_markup()
-
-
-def shop_country_keyboard() -> InlineKeyboardMarkup:
-    """Country selection grid."""
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text="🇮🇳 India", callback_data="country_IN"),
-        InlineKeyboardButton(text="🇺🇸 USA", callback_data="country_US"),
-    )
-    builder.row(
-        InlineKeyboardButton(text="🇮🇩 Indonesia", callback_data="country_ID"),
-        InlineKeyboardButton(text="🇲🇲 Myanmar", callback_data="country_MM"),
-    )
-    builder.row(
-        InlineKeyboardButton(text="🇧🇩 Bangladesh", callback_data="country_BD"),
-        InlineKeyboardButton(text="🇻🇳 Vietnam", callback_data="country_VN"),
-    )
-    builder.row(
-        InlineKeyboardButton(text="🌐 Random", callback_data="country_RANDOM")
-    )
-    builder.row(
-        InlineKeyboardButton(text="🔍 Search All Countries", callback_data="country_search")
-    )
-    builder.row(
-        InlineKeyboardButton(text="⬅️ Back", callback_data="shop_main")
-    )
-    return builder.as_markup()
-
-
-def confirm_purchase_keyboard() -> InlineKeyboardMarkup:
-    """Confirm purchase button. The pending purchase is stored in FSM state."""
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text="✅ Confirm & Buy", callback_data="confirm_buy_pending")
-    )
-    builder.row(
-        InlineKeyboardButton(text="⬅️ Back", callback_data="shop_main")
-    )
-    return builder.as_markup()
-
-
-def account_received_keyboard(order_id: str, item_id: str = "") -> InlineKeyboardMarkup:
-    """Buttons shown after an account is delivered."""
-    builder = InlineKeyboardBuilder()
-    if item_id:
-        builder.row(
-            InlineKeyboardButton(text="🔄 Get Live OTP", callback_data=f"get_otp:{item_id}")
-        )
-    builder.row(
-        InlineKeyboardButton(text="📋 Save to Orders", callback_data=f"save_order:{order_id}"),
-        InlineKeyboardButton(text="🗑️ Account Received", callback_data="account_ack"),
     )
     return builder.as_markup()
 
@@ -150,7 +117,7 @@ def orders_list_keyboard(orders: list, page: int = 0, per_page: int = 5) -> Inli
         amount = order.get("amount_paid", 0)
         builder.row(
             InlineKeyboardButton(
-                text=f"🟢 {order_id} | ₹{amount:.2f}",
+                text=f"🟢 {order_id} | ₹{amount:.0f}",
                 callback_data=f"order_detail:{order_id}",
             )
         )
@@ -175,7 +142,7 @@ def orders_list_keyboard(orders: list, page: int = 0, per_page: int = 5) -> Inli
 
 
 def order_detail_keyboard(order_id: str, item_id: str = "") -> InlineKeyboardMarkup:
-    """Single order detail view with a live OTP button."""
+    """Single order detail view with Live OTP button."""
     builder = InlineKeyboardBuilder()
     if item_id:
         builder.row(

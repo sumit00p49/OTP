@@ -1,9 +1,9 @@
 """
 Message formatting helpers with rich emojis.
+Simplified for India-only TG Premium accounts at fixed ₹60.
 """
 
 import json
-from typing import Optional
 
 
 def format_welcome(first_name: str, balance: float) -> str:
@@ -11,8 +11,8 @@ def format_welcome(first_name: str, balance: float) -> str:
     return (
         f"👋 <b>Welcome, {first_name}!</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "🛒 <b>Telegram Account Shop</b>\n"
-        "Buy premium TG accounts instantly!\n\n"
+        "📱✨ <b>Telegram Premium Account Shop</b>\n"
+        "Buy verified India TG accounts instantly!\n\n"
         f"💳 <b>Wallet Balance:</b> ₹{balance:.2f}\n"
         "📦 <b>Status:</b> ✅ Active\n\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
@@ -20,9 +20,106 @@ def format_welcome(first_name: str, balance: float) -> str:
     )
 
 
+def format_buy_preview(price: float, balance: float) -> str:
+    """Purchase confirmation screen."""
+    return (
+        "📱✨ <b>Buy India TG Account</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🇮🇳 <b>Country:</b> India (+91)\n"
+        "📦 <b>Type:</b> Telegram Account\n"
+        "🔐 <b>Includes:</b> Password + Login Code\n"
+        f"💵 <b>Price:</b> ₹{price:.0f}\n\n"
+        f"💳 Your Balance: ₹{balance:.2f}\n\n"
+        "⚠️ <b>NO REFUNDS AFTER PURCHASE</b>\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "⚡ Click below to confirm:"
+    )
+
+
+def format_purchase_processing() -> str:
+    """Purchase in progress."""
+    return (
+        "⏳ <b>Processing your purchase...</b>\n\n"
+        "🔄 Fetching account from store...\n"
+        "Please wait 5-10 seconds."
+    )
+
+
+def format_account_details(order_id: str, account_data: dict, price: float) -> str:
+    """Format delivered account details."""
+    phone = account_data.get("phone", "N/A")
+    password = account_data.get("password", "")
+    twofa = account_data.get("2fa", "")
+    login_code = account_data.get("login_code", "")
+    item_id = account_data.get("item_id", "")
+    has_tdata = account_data.get("has_tdata", False)
+
+    msg = (
+        "✅ <b>Purchase Successful!</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🆔 <b>Order:</b> {order_id}\n"
+        f"💵 <b>Paid:</b> ₹{price:.0f}\n"
+        "🇮🇳 <b>Country:</b> India\n\n"
+        "📱 <b>Account Details:</b>\n"
+        f"📞 Phone: <code>{phone}</code>\n"
+    )
+    if password and password != "N/A":
+        msg += f"🔓 Password: <code>{password}</code>\n"
+    if twofa:
+        msg += f"🔐 2FA: <code>{twofa}</code>\n"
+    if login_code:
+        msg += f"📲 Login Code: <code>{login_code}</code>\n"
+    if has_tdata and item_id:
+        msg += f"💾 TData: <code>https://lzt.market/{item_id}/</code>\n"
+
+    msg += (
+        "\n━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 Use <b>🔄 Get Live OTP</b> button anytime for\n"
+        "a fresh login code.\n"
+        "⚠️ Save these details! No refunds."
+    )
+    return msg
+
+
+def format_purchase_failed_refund(amount: float, reason: str) -> str:
+    """Purchase failed, refund issued."""
+    return (
+        "❌ <b>Purchase Failed</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"📋 Reason: {reason}\n\n"
+        f"💵 Refund: <b>₹{amount:.0f}</b> returned to your wallet.\n\n"
+        "💡 Try again or contact support."
+    )
+
+
+def format_out_of_stock() -> str:
+    """Out of stock message."""
+    return (
+        "❌ <b>Out of Stock</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "No India accounts available right now.\n\n"
+        "💡 Check back in 5-10 minutes.\n"
+        "✅ No money was deducted from your wallet."
+    )
+
+
+def format_insufficient_balance(required: float, current: float) -> str:
+    """Insufficient balance message."""
+    needed = required - current
+    return (
+        "⚠️ <b>Insufficient Balance</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"💵 Required: ₹{required:.0f}\n"
+        f"💳 Your Balance: ₹{current:.2f}\n"
+        f"❌ Need: ₹{needed:.2f} more\n\n"
+        "💡 Use <b>💰 Deposit Funds</b> to add balance."
+    )
+
+
+# ==================== Balance ====================
 
 def format_balance(balance: float) -> str:
-    """Format balance check message."""
+    """Format balance check."""
     return (
         "💳 <b>Your Wallet</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -31,6 +128,8 @@ def format_balance(balance: float) -> str:
         "💡 Use <b>Deposit</b> to add funds."
     )
 
+
+# ==================== Deposit ====================
 
 def format_deposit_info(upi_id: str, upi_name: str) -> str:
     """Format deposit instructions."""
@@ -41,32 +140,31 @@ def format_deposit_info(upi_id: str, upi_name: str) -> str:
         f"🧑‍💼 <b>Name:</b> {upi_name}\n\n"
         "📋 <b>Steps:</b>\n"
         f"1️⃣ Send money via UPI to <code>{upi_id}</code>\n"
-        "2️⃣ Click <b>Make Deposit</b> and enter the exact amount\n"
-        "3️⃣ Upload your UPI payment screenshot\n"
-        "4️⃣ Admin verifies and approves the payment\n"
-        "5️⃣ Balance is instantly credited to your wallet\n\n"
+        "2️⃣ Click <b>Make Deposit</b> and enter amount\n"
+        "3️⃣ Upload your payment screenshot\n"
+        "4️⃣ Admin verifies and approves\n"
+        "5️⃣ Balance credited instantly!\n\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
         "⚡ Click below to proceed:"
     )
 
 
-
 def format_deposit_amount_prompt() -> str:
-    """Prompt user for deposit amount."""
+    """Prompt for deposit amount."""
     return (
         "💸 <b>Enter Deposit Amount (₹)</b>\n\n"
         "📝 Type the exact amount you sent.\n"
-        "📌 Example: <code>200</code>\n\n"
+        "📌 Example: <code>100</code>\n\n"
         "⚠️ Minimum deposit: ₹10"
     )
 
 
 def format_deposit_screenshot_prompt(amount: float) -> str:
-    """Prompt user for screenshot."""
+    """Prompt for screenshot."""
     return (
         f"📸 <b>Amount: ₹{amount:.2f}</b>\n\n"
-        "Please send the <b>payment screenshot</b> now.\n\n"
-        "⚠️ Make sure the screenshot clearly shows:\n"
+        "Send the <b>payment screenshot</b> now.\n\n"
+        "⚠️ Make sure it clearly shows:\n"
         "• Transaction amount\n"
         "• UPI reference/ID\n"
         "• Timestamp"
@@ -78,39 +176,37 @@ def format_deposit_pending() -> str:
     return (
         "⏳ <b>Deposit Submitted!</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "Your deposit request has been sent to admin.\n"
-        "You'll be notified once it's approved.\n\n"
-        "💡 This usually takes a few minutes."
+        "Sent to admin for verification.\n"
+        "You'll be notified once approved.\n\n"
+        "💡 Usually takes 2-5 minutes."
     )
 
 
 def format_deposit_approved(amount: float, new_balance: float) -> str:
-    """Deposit approved notification to user."""
+    """Deposit approved notification."""
     return (
         "🎉 <b>Deposit Approved!</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"💵 Amount: <b>₹{amount:.2f}</b>\n"
-        f"💳 Current Balance: <b>₹{new_balance:.2f}</b>\n\n"
+        f"💳 New Balance: <b>₹{new_balance:.2f}</b>\n\n"
         "✅ Your wallet has been credited!"
     )
 
 
 def format_deposit_rejected() -> str:
-    """Deposit rejected notification to user."""
+    """Deposit rejected notification."""
     return (
         "❌ <b>Deposit Rejected</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
         "Your deposit was rejected.\n"
-        "Please contact support or re-upload a clear screenshot.\n\n"
-        "💡 Make sure the screenshot is clear and shows all details."
+        "Please contact support or upload a clearer screenshot."
     )
-
 
 
 def format_admin_deposit_notification(
     user_id: int, username: str, first_name: str, amount: float, deposit_id: int
 ) -> str:
-    """Format deposit notification for admin group."""
+    """Format deposit notification for admin."""
     return (
         "🔔 <b>New Deposit Request</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -119,144 +215,11 @@ def format_admin_deposit_notification(
         f"💵 <b>Amount:</b> ₹{amount:.2f}\n"
         f"📋 <b>Deposit ID:</b> #{deposit_id}\n\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
-        "⚡ Use buttons below to approve or reject."
+        "⚡ Approve or reject below:"
     )
 
 
-def format_shop_quality() -> str:
-    """Format shop quality selection."""
-    return (
-        "📱 <b>TG Accounts</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "1️⃣ <b>Cheap Acc</b> — 🏷️ All origins, lowest price\n"
-        "2️⃣ <b>Good Quality Acc</b> — ✨ Autoreg/Personal only\n\n"
-        "⚠️ <b>NO REFUNDS IN ANY CASE.</b>\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        "⚡ Select quality tier:"
-    )
-
-
-def format_shop_country(quality: str) -> str:
-    """Format country selection. Price is quoted live after selection."""
-    quality_label = "⭐ Good Quality" if quality == "good" else "🎣 Cheap"
-    return (
-        f"🌍 <b>Select a Region</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📦 Quality: {quality_label}\n"
-        "💵 Price: <i>quoted live after you pick a country</i>\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        "⚡ Choose a country:"
-    )
-
-
-def format_purchase_confirm(quality: str, country: str, price_inr: float, balance: float) -> str:
-    """Confirmation shown after a live stock quote."""
-    quality_label = "⭐ Good Quality" if quality == "good" else "🎣 Cheap"
-    country_label = "🌐 Random" if str(country).upper() == "RANDOM" else str(country).upper()
-    return (
-        "🛒 <b>Confirm Purchase</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📦 Quality: {quality_label}\n"
-        f"🌍 Country: {country_label}\n"
-        f"💵 Price: <b>₹{price_inr:.2f}</b>\n"
-        f"💳 Your Balance: ₹{balance:.2f}\n\n"
-        "⚠️ <b>NO REFUNDS IN ANY CASE.</b>\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        "⚡ Confirm to buy this account:"
-    )
-
-
-def format_out_of_stock(country: str) -> str:
-    """Out of stock message."""
-    country_label = "this region" if str(country).upper() == "RANDOM" else str(country).upper()
-    return (
-        "❌ <b>Out of Stock</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"No accounts available for <b>{country_label}</b> right now.\n\n"
-        "💡 Try another country or check back later.\n"
-        "✅ No money was deducted."
-    )
-
-
-
-def format_country_search_prompt() -> str:
-    """Prompt user to type country name."""
-    return (
-        "🔍 <b>Search Country</b>\n\n"
-        "Please type the country name.\n"
-        "📌 Example: <code>Russia</code> or <code>UK</code>"
-    )
-
-
-def format_insufficient_balance(required: float, current: float) -> str:
-    """Insufficient balance message."""
-    needed = required - current
-    return (
-        "⚠️ <b>Insufficient Balance</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"💵 Required: ₹{required:.2f}\n"
-        f"💳 Your Balance: ₹{current:.2f}\n"
-        f"❌ Shortfall: ₹{needed:.2f}\n\n"
-        "💡 Please deposit at least "
-        f"₹{needed:.2f} using /deposit."
-    )
-
-
-def format_purchase_processing() -> str:
-    """Purchase in progress message."""
-    return "⏳ <b>Processing your purchase...</b>\n\nPlease wait."
-
-
-def format_account_details(
-    order_id: str, account_data: dict, price: float
-) -> str:
-    """Format purchased Telegram account details."""
-    phone = account_data.get("phone", account_data.get("email", "N/A"))
-    password = account_data.get("password", "N/A")
-    twofa = account_data.get("2fa", account_data.get("totp", ""))
-    login_code = account_data.get("login_code", "")
-    item_id = account_data.get("item_id", "")
-    has_tdata = account_data.get("has_tdata", False)
-
-    msg = (
-        "✅ <b>Purchase Successful!</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🆔 <b>Order:</b> {order_id}\n"
-        f"💵 <b>Paid:</b> ₹{price:.2f}\n\n"
-        "📱 <b>Account Details:</b>\n"
-        f"🔑 Phone: <code>{phone}</code>\n"
-    )
-    if password and password != "N/A":
-        msg += f"🔓 Password: <code>{password}</code>\n"
-    if twofa:
-        msg += f"🔐 2FA Code: <code>{twofa}</code>\n"
-    if login_code:
-        msg += f"📲 Login Code: <code>{login_code}</code>\n"
-    if has_tdata and item_id:
-        msg += (
-            f"💾 TData/Session: download from LZT\n"
-            f"    <code>https://lzt.market/{item_id}/</code>\n"
-        )
-
-    msg += (
-        "\n━━━━━━━━━━━━━━━━━━━━━\n"
-        "💡 Login via TData or request a fresh code with the phone.\n"
-        "⚠️ Save these details! No refunds."
-    )
-    return msg
-
-
-def format_purchase_failed_refund(amount: float, reason: str) -> str:
-    """Purchase failed, refund issued."""
-    return (
-        "❌ <b>Purchase Failed</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📋 Reason: {reason}\n"
-        f"💵 Refund: <b>₹{amount:.2f}</b> returned to wallet.\n\n"
-        "💡 Please try again or choose a different option."
-    )
-
-
+# ==================== Orders ====================
 
 def format_order_list_header(count: int) -> str:
     """Header for order history."""
@@ -269,25 +232,22 @@ def format_order_list_header(count: int) -> str:
 
 
 def format_order_detail(order: dict) -> str:
-    """Format single order detail view."""
+    """Format single order detail."""
     order_id = order.get("order_id", "N/A")
     amount = order.get("amount_paid", 0)
-    quality = order.get("quality", "N/A")
-    country = order.get("country", "N/A")
     date = order.get("created_at", "N/A")
 
-    # Parse account data
     account_data = {}
-    raw_data = order.get("account_data", "{}")
-    if raw_data:
+    raw = order.get("account_data", "{}")
+    if raw:
         try:
-            account_data = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
+            account_data = json.loads(raw) if isinstance(raw, str) else raw
         except (json.JSONDecodeError, TypeError):
             account_data = {}
 
-    phone = account_data.get("phone", account_data.get("email", "N/A"))
-    password = account_data.get("password", "N/A")
-    twofa = account_data.get("2fa", account_data.get("totp", ""))
+    phone = account_data.get("phone", "N/A")
+    password = account_data.get("password", "")
+    twofa = account_data.get("2fa", "")
     login_code = account_data.get("login_code", "")
     item_id = account_data.get("item_id", "")
     has_tdata = account_data.get("has_tdata", False)
@@ -296,12 +256,11 @@ def format_order_detail(order: dict) -> str:
         f"📋 <b>Order Details</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"🆔 Order: <b>{order_id}</b>\n"
-        f"💵 Paid: ₹{amount:.2f}\n"
-        f"📦 Quality: {quality}\n"
-        f"🌍 Country: {country}\n"
+        f"💵 Paid: ₹{amount:.0f}\n"
+        f"🇮🇳 Country: India\n"
         f"📅 Date: {date}\n\n"
         "📱 <b>Account Info:</b>\n"
-        f"🔑 Phone: <code>{phone}</code>\n"
+        f"📞 Phone: <code>{phone}</code>\n"
     )
     if password and password != "N/A":
         msg += f"🔓 Password: <code>{password}</code>\n"
@@ -321,10 +280,37 @@ def format_no_orders() -> str:
     return (
         "📋 <b>My Orders</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "📭 You haven't made any purchases yet.\n\n"
-        "💡 Use <b>Buy TG Accounts</b> to get started!"
+        "📭 No purchases yet.\n\n"
+        "💡 Use <b>📱✨ Buy TG Premium Acc</b> to get started!"
     )
 
+
+# ==================== Live OTP ====================
+
+def format_live_otp(code: str) -> str:
+    """Fresh live OTP received."""
+    return (
+        "📲 <b>Live OTP Received!</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🔐 Code: <code>{code}</code>\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 Tap the code to copy.\n"
+        "Press <b>🔄 Get Live OTP</b> for a new one."
+    )
+
+
+def format_otp_not_ready() -> str:
+    """No OTP available yet."""
+    return (
+        "⏳ <b>No OTP Yet</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "Login code hasn't arrived yet.\n\n"
+        "💡 Trigger a login on the account first, then\n"
+        "press <b>🔄 Get Live OTP</b> again in ~10 seconds."
+    )
+
+
+# ==================== Support ====================
 
 def format_support() -> str:
     """Support message."""
@@ -333,34 +319,7 @@ def format_support() -> str:
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
         "Need help? Contact us:\n\n"
         "📩 <b>Telegram:</b> @KaizenSeller\n"
-        "⏰ <b>Response Time:</b> Within 1 hour\n\n"
+        "⏰ <b>Response:</b> Within 1 hour\n\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
-        "💡 Before contacting, please have your:\n"
-        "• User ID (use /start to see)\n"
-        "• Order ID (if relevant)\n"
-        "• Screenshot of any issue"
-    )
-
-
-
-def format_live_otp(code: str) -> str:
-    """Format a freshly fetched live OTP / Telegram login code."""
-    return (
-        "📲 <b>Live OTP Received!</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🔐 Code: <code>{code}</code>\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        "💡 Tap the code to copy. It expires quickly —\n"
-        "press <b>🔄 Get Live OTP</b> again for a fresh one."
-    )
-
-
-def format_otp_not_ready() -> str:
-    """Shown when no OTP is available yet."""
-    return (
-        "⏳ <b>No OTP Yet</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "No login code has arrived for this account yet.\n\n"
-        "💡 Trigger a login on the account, then press\n"
-        "<b>🔄 Get Live OTP</b> again in a few seconds."
+        "💡 Have your User ID and Order ID ready."
     )

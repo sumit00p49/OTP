@@ -1,5 +1,5 @@
 """
-Handler for order history and order details.
+Handler for order history, order details, and Live OTP.
 """
 
 import logging
@@ -37,10 +37,8 @@ async def my_orders(callback: CallbackQuery):
         return
 
     count = await get_user_order_count(user_id)
-    text = format_order_list_header(count)
-
     await callback.message.edit_text(
-        text,
+        format_order_list_header(count),
         reply_markup=orders_list_keyboard(orders, page=0),
         parse_mode="HTML",
     )
@@ -55,10 +53,8 @@ async def orders_pagination(callback: CallbackQuery):
     orders = await get_user_orders(user_id, limit=50)
     count = await get_user_order_count(user_id)
 
-    text = format_order_list_header(count)
-
     await callback.message.edit_text(
-        text,
+        format_order_list_header(count),
         reply_markup=orders_list_keyboard(orders, page=page),
         parse_mode="HTML",
     )
@@ -86,10 +82,10 @@ async def order_detail(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("get_otp:"))
 async def get_live_otp(callback: CallbackQuery):
-    """Fetch the latest live OTP / Telegram login code for an account."""
+    """Fetch latest live Telegram login code for an account."""
     item_id = callback.data.replace("get_otp:", "")
     if not item_id:
-        await callback.answer("❌ Invalid account.", show_alert=True)
+        await callback.answer("❌ Invalid account", show_alert=True)
         return
 
     await callback.answer("🔄 Fetching live OTP...")
@@ -98,17 +94,9 @@ async def get_live_otp(callback: CallbackQuery):
         code = await lzt_api.get_telegram_login_code(item_id)
     except LZTAPIError as e:
         logger.warning("OTP fetch failed for item %s: %s", item_id, e.message)
-        await callback.message.answer(
-            format_otp_not_ready(), parse_mode="HTML"
-        )
-        return
+        code = None
 
     if code:
-        # Send as a fresh, copyable message (each fetch is a new live code)
-        await callback.message.answer(
-            format_live_otp(code), parse_mode="HTML"
-        )
+        await callback.message.answer(format_live_otp(code), parse_mode="HTML")
     else:
-        await callback.message.answer(
-            format_otp_not_ready(), parse_mode="HTML"
-        )
+        await callback.message.answer(format_otp_not_ready(), parse_mode="HTML")
