@@ -8,92 +8,113 @@ import json
 from aiogram.types import MessageEntity
 
 
-# ==================== Custom Emoji IDs ====================
-# You can find custom emoji IDs by sending them to @RawDataBot
-# These are Telegram Premium animated emojis
-EMOJI_STAR = "5368324170671202286"       # ✨ animated star
-EMOJI_LIGHTNING = "5368324170671202286"   # ⚡ lightning
-EMOJI_LOCK = "5367811040498488737"        # 🔐 lock
-EMOJI_CHECK = "5368324170671202286"      # ✅ check
+# ==================== Custom (Premium) Emoji IDs ====================
+# IMPORTANT: A bot can only RENDER these premium/custom emojis if it has
+# purchased an additional username on Fragment. For any other bot, Telegram
+# ignores the custom_emoji entity and shows the regular fallback emoji below.
+#
+# To get real IDs: send the premium emoji to @RawDataBot and copy the
+# "custom_emoji_id" value, then paste it here. Each line uses a distinct emoji
+# so you can give each its own animated premium look.
+EMOJI_WAVE = "5368324170671202286"       # 👋 waving hand
+EMOJI_PREMIUM = "5368324170671202286"    # 💎 premium IDs
+EMOJI_PHONE = "5368324170671202286"      # 📲 virtual number
+EMOJI_CART = "5368324170671202286"       # 🛒 bulk orders
+EMOJI_LIGHTNING = "5368324170671202286"  # ⚡ instant delivery
+EMOJI_CLOCK = "5368324170671202286"      # 🕒 24/7
+EMOJI_LOCK = "5367811040498488737"       # 🔐 100% safe
+EMOJI_CARD = "5368324170671202286"       # 💳 balance
+EMOJI_ONLINE = "5368324170671202286"     # 🟢 status active
+
+
+# Maps each placeholder emoji in the welcome text to its premium custom_emoji_id.
+_WELCOME_EMOJI_MAP = {
+    "👋": EMOJI_WAVE,
+    "💎": EMOJI_PREMIUM,
+    "📲": EMOJI_PHONE,
+    "🛒": EMOJI_CART,
+    "⚡": EMOJI_LIGHTNING,
+    "🕒": EMOJI_CLOCK,
+    "🔐": EMOJI_LOCK,
+    "💳": EMOJI_CARD,
+    "🟢": EMOJI_ONLINE,
+}
+
+
+def _utf16_len(s: str) -> int:
+    """Length of a string in UTF-16 code units (what Telegram offsets use)."""
+    return len(s.encode("utf-16-le")) // 2
+
+
+def _utf16_offset(text: str, index: int) -> int:
+    """UTF-16 offset of a Python character index within text."""
+    return _utf16_len(text[:index])
+
+
+def _WELCOME_TEXT(first_name: str, balance: float) -> str:
+    """The attractive welcome layout. Single-codepoint emojis act as
+    fallbacks/anchors for the premium custom emojis."""
+    return (
+        f"👋 Welcome, {first_name}!\n"
+        "\n"
+        "💎 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙏𝙚𝙡𝙚𝙜𝙧𝙖𝙢 𝙄𝘿𝙨\n"
+        "📲 𝙑𝙞𝙧𝙩𝙪𝙖𝙡 𝙉𝙪𝙢𝙗𝙚𝙧 𝙑𝙚𝙧𝙞𝙛𝙞𝙚𝙙\n"
+        "🛒 𝘽𝙪𝙡𝙠 𝙊𝙧𝙙𝙚𝙧 𝙊𝙛𝙛𝙚𝙧𝙨\n"
+        "⚡ 𝙄𝙣𝙨𝙩𝙖𝙣𝙩 𝘿𝙚𝙡𝙞𝙫𝙚𝙧𝙮\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "   🕒 𝟮𝟰/𝟳   •   🔐 𝟭𝟬𝟬% 𝗦𝗮𝗳𝗲\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "\n"
+        f"💳 Balance: ₹{balance:.2f}\n"
+        "🟢 Status: Active"
+    )
 
 
 def build_welcome_entities(first_name: str, balance: float) -> tuple[str, list[MessageEntity]]:
     """
     Build the welcome message with Telegram Premium custom emojis.
+
+    Offsets and lengths are computed in UTF-16 code units (Telegram's
+    requirement), and each custom_emoji entity wraps exactly one fallback
+    emoji so the server accepts it.
+
     Returns (text, entities) tuple for use without parse_mode.
     """
-    # Build the text with placeholder emojis (single char each)
-    lines = [
-        f"👋 Welcome, {first_name}!\n",
-        "\n",
-        "✨ 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙏𝙚𝙡𝙚𝙜𝙧𝙖𝙢 𝙄𝘿𝙨\n",
-        "✨ 𝙑𝙞𝙧𝙩𝙪𝙖𝙡 𝙉𝙪𝙢𝙗𝙚𝙧 𝙑𝙚𝙧𝙞𝙛𝙞𝙚𝙙\n",
-        "✨ 𝘽𝙪𝙡𝙠 𝙊𝙧𝙙𝙚𝙧 𝙊𝙛𝙛𝙚𝙧𝙨\n",
-        "✨ 𝙄𝙣𝙨𝙩𝙖𝙣𝙩 𝘿𝙚𝙡𝙞𝙫𝙚𝙧𝙮\n",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n",
-        "    ⚡ 𝟮𝟰/𝟳  •  🔐 𝟭𝟬𝟬% 𝗦𝗮𝗳𝗲\n",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n",
-        "\n",
-        f"💳 Balance: ₹{balance:.2f}\n",
-        f"📦 Status: ⭐ Active\n",
-    ]
+    text = _WELCOME_TEXT(first_name, balance)
+    entities: list[MessageEntity] = []
 
-    text = "".join(lines)
-
-    # Build entities for custom emojis
-    # Find positions of ✨ characters and replace with custom emoji entities
-    entities = []
-
-    # Find all ✨ positions
+    # Walk the text once, tracking the UTF-16 offset of every character.
     offset = 0
-    for i, char in enumerate(text):
-        if char == "✨":
+    for char in text:
+        char_len = _utf16_len(char)
+        emoji_id = _WELCOME_EMOJI_MAP.get(char)
+        if emoji_id:
             entities.append(MessageEntity(
                 type="custom_emoji",
-                offset=i,
-                length=1,
-                custom_emoji_id=EMOJI_STAR,
+                offset=offset,
+                length=char_len,
+                custom_emoji_id=emoji_id,
             ))
-        elif char == "⚡":
-            entities.append(MessageEntity(
-                type="custom_emoji",
-                offset=i,
-                length=1,
-                custom_emoji_id=EMOJI_LIGHTNING,
-            ))
-        elif char == "🔐":
-            entities.append(MessageEntity(
-                type="custom_emoji",
-                offset=i,
-                length=1,
-                custom_emoji_id=EMOJI_LOCK,
-            ))
-        elif char == "⭐":
-            entities.append(MessageEntity(
-                type="custom_emoji",
-                offset=i,
-                length=1,
-                custom_emoji_id=EMOJI_CHECK,
-            ))
+        offset += char_len
 
-    # Add bold for "Welcome, name"
+    # Bold the "Welcome, name!" greeting.
     welcome_text = f"Welcome, {first_name}!"
-    welcome_offset = text.find(welcome_text)
-    if welcome_offset >= 0:
+    idx = text.find(welcome_text)
+    if idx >= 0:
         entities.append(MessageEntity(
             type="bold",
-            offset=welcome_offset,
-            length=len(welcome_text),
+            offset=_utf16_offset(text, idx),
+            length=_utf16_len(welcome_text),
         ))
 
-    # Bold for Balance amount
+    # Bold the balance amount.
     bal_text = f"₹{balance:.2f}"
-    bal_offset = text.find(bal_text)
-    if bal_offset >= 0:
+    idx = text.find(bal_text)
+    if idx >= 0:
         entities.append(MessageEntity(
             type="bold",
-            offset=bal_offset,
-            length=len(bal_text),
+            offset=_utf16_offset(text, idx),
+            length=_utf16_len(bal_text),
         ))
 
     return text, entities
@@ -101,18 +122,7 @@ def build_welcome_entities(first_name: str, balance: float) -> tuple[str, list[M
 
 def format_welcome_text(first_name: str, balance: float) -> str:
     """Fallback plain-text welcome (used where entities aren't supported)."""
-    return (
-        f"👋 Welcome, {first_name}!\n\n"
-        "✨ 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙏𝙚𝙡𝙚𝙜𝙧𝙖𝙢 𝙄𝘿𝙨\n"
-        "✨ 𝙑𝙞𝙧𝙩𝙪𝙖𝙡 𝙉𝙪𝙢𝙗𝙚𝙧 𝙑𝙚𝙧𝙞𝙛𝙞𝙚𝙙\n"
-        "✨ 𝘽𝙪𝙡𝙠 𝙊𝙧𝙙𝙚𝙧 𝙊𝙛𝙛𝙚𝙧𝙨\n"
-        "✨ 𝙄𝙣𝙨𝙩𝙖𝙣𝙩 𝘿𝙚𝙡𝙞𝙫𝙚𝙧𝙮\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "    ⚡ 𝟮𝟰/𝟳  •  🔐 𝟭𝟬𝟬% 𝗦𝗮𝗳𝗲\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"💳 Balance: ₹{balance:.2f}\n"
-        "📦 Status: ⭐ Active"
-    )
+    return _WELCOME_TEXT(first_name, balance)
 
 
 def format_quantity_select(price_per: float) -> str:
