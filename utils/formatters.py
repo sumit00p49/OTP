@@ -22,7 +22,7 @@ EMOJI_PHONE = "5368324170671202286"      # 📲 virtual number
 EMOJI_CART = "5368324170671202286"       # 🛒 bulk orders
 EMOJI_LIGHTNING = "5368324170671202286"  # ⚡ instant delivery
 EMOJI_CLOCK = "5368324170671202286"      # 🕒 24/7
-EMOJI_LOCK = "5367811040498488737"       # 🔐 100% safe
+EMOJI_SHIELD = "6030445631921721471"     # 🛡 100% safe (REAL, verified via RawDataBot)
 EMOJI_CARD = "5368324170671202286"       # 💳 balance
 EMOJI_ONLINE = "5368324170671202286"     # 🟢 status active
 
@@ -35,7 +35,7 @@ _WELCOME_EMOJI_MAP = {
     "🛒": EMOJI_CART,
     "⚡": EMOJI_LIGHTNING,
     "🕒": EMOJI_CLOCK,
-    "🔐": EMOJI_LOCK,
+    "🛡": EMOJI_SHIELD,
     "💳": EMOJI_CARD,
     "🟢": EMOJI_ONLINE,
 }
@@ -62,7 +62,7 @@ def _WELCOME_TEXT(first_name: str, balance: float) -> str:
         "🛒 𝘽𝙪𝙡𝙠 𝙊𝙧𝙙𝙚𝙧 𝙊𝙛𝙛𝙚𝙧𝙨\n"
         "⚡ 𝙄𝙣𝙨𝙩𝙖𝙣𝙩 𝘿𝙚𝙡𝙞𝙫𝙚𝙧𝙮\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
-        "   🕒 𝟮𝟰/𝟳   •   🔐 𝟭𝟬𝟬% 𝗦𝗮𝗳𝗲\n"
+        "   🕒 𝟮𝟰/𝟳   •   🛡 𝟭𝟬𝟬% 𝗦𝗮𝗳𝗲\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
         "\n"
         f"💳 Balance: ₹{balance:.2f}\n"
