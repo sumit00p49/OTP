@@ -1,23 +1,20 @@
 """
 Handler for deposit flow.
-FSM: deposit_start → enter amount → upload screenshot → admin notification.
-
-Fixes:
-- Shows UPI QR code image (from URL or auto-generated)
-- Properly handles screenshot + sends to admin with approve/reject
-- Works even if screenshot is sent as document/file
+FSM: deposit_start → enter amount → show QR with amount → upload screenshot → admin notification.
 """
 
 import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
+from aiogram.types import URLInputFile
 
 from config import UPI_ID, UPI_NAME, MIN_DEPOSIT, ADMIN_GROUP_ID, ADMIN_IDS
 from states.deposit_states import DepositStates
 from keyboards.inline import (
     deposit_menu_keyboard,
     deposit_cancel_keyboard,
+    deposit_check_keyboard,
     admin_deposit_keyboard,
     back_to_main_keyboard,
 )
@@ -54,23 +51,11 @@ async def deposit_ask_amount(callback: CallbackQuery, state: FSMContext):
     """Ask user to enter deposit amount."""
     await state.set_state(DepositStates.waiting_amount)
 
-    # Try to edit caption (if it was a photo message) or send new
-    try:
-        await callback.message.edit_caption(
-            caption=format_deposit_amount_prompt(),
-            reply_markup=deposit_cancel_keyboard(),
-            parse_mode="HTML",
-        )
-    except Exception:
-        try:
-            await callback.message.delete()
-        except Exception:
-            pass
-        await callback.message.answer(
-            format_deposit_amount_prompt(),
-            reply_markup=deposit_cancel_keyboard(),
-            parse_mode="HTML",
-        )
+    await callback.message.edit_text(
+        format_deposit_amount_prompt(),
+        reply_markup=deposit_cancel_keyboard(),
+        parse_mode="HTML",
+    )
     await callback.answer()
 
 
@@ -90,9 +75,20 @@ async def deposit_cancel(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+@router.callback_query(F.data == "deposit_check_now")
+async def deposit_check_now(callback: CallbackQuery, state: FSMContext):
+    """User clicked Check Now — prompt to send screenshot."""
+    await callback.message.answer(
+        "📸 <b>Send your payment screenshot now.</b>\n\n"
+        "⚠️ Make sure it clearly shows the amount and UPI reference.",
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
 @router.message(DepositStates.waiting_amount)
 async def deposit_receive_amount(message: Message, state: FSMContext):
-    """Receive and validate deposit amount."""
+    """Receive and validate deposit amount, then show QR + deposit details."""
     text = message.text.strip() if message.text else ""
     text = text.replace("₹", "").replace(",", "").strip()
 
@@ -122,13 +118,19 @@ async def deposit_receive_amount(message: Message, state: FSMContext):
         )
         return
 
-    # Save amount and ask for screenshot
+    # Save amount and move to screenshot state
     await state.update_data(deposit_amount=amount)
     await state.set_state(DepositStates.waiting_screenshot)
 
-    await message.answer(
-        format_deposit_screenshot_prompt(amount),
-        reply_markup=deposit_cancel_keyboard(),
+    # Generate UPI QR with amount pre-filled
+    upi_link = f"upi://pay?pa={UPI_ID}&pn={UPI_NAME.replace(' ', '%20')}&am={amount:.2f}&cu=INR"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_link}"
+
+    # Send QR photo with deposit details as caption
+    await message.answer_photo(
+        photo=URLInputFile(qr_url),
+        caption=format_deposit_screenshot_prompt(amount),
+        reply_markup=deposit_check_keyboard(),
         parse_mode="HTML",
     )
 

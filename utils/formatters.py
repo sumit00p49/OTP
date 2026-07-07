@@ -213,24 +213,30 @@ def format_deposit_info(upi_id: str, upi_name: str) -> str:
 
 
 def format_deposit_amount_prompt() -> str:
-    """Prompt for deposit amount."""
+    """Prompt for deposit amount - styled italic bold."""
     return (
-        "💸 <b>Enter Deposit Amount (₹)</b>\n\n"
-        "📝 Type the exact amount you sent.\n"
-        "📌 Example: <code>100</code>\n\n"
-        "⚠️ Minimum deposit: ₹10"
+        "💸 𝙀𝙣𝙩𝙚𝙧 𝘿𝙚𝙥𝙤𝙨𝙞𝙩 𝘼𝙢𝙤𝙪𝙣𝙩 (₹)\n"
+        "\n"
+        "📝 𝙏𝙮𝙥𝙚 𝙩𝙝𝙚 𝙚𝙭𝙖𝙘𝙩 𝙖𝙢𝙤𝙪𝙣𝙩 𝙮𝙤𝙪 𝙨𝙚𝙣𝙩.\n"
+        "📌 𝙀𝙭𝙖𝙢𝙥𝙡𝙚: <code>100</code>\n"
+        "\n"
+        "⚠️ 𝙈𝙞𝙣𝙞𝙢𝙪𝙢 𝙙𝙚𝙥𝙤𝙨𝙞𝙩: ₹10"
     )
 
 
 def format_deposit_screenshot_prompt(amount: float) -> str:
-    """Prompt for screenshot."""
+    """Deposit details box shown after user enters amount."""
     return (
-        f"📸 <b>Amount: ₹{amount:.2f}</b>\n\n"
-        "Send the <b>payment screenshot</b> now.\n\n"
-        "⚠️ Make sure it clearly shows:\n"
-        "• Transaction amount\n"
-        "• UPI reference/ID\n"
-        "• Timestamp"
+        "┏━━━━━━━━━━━━━━━━━━━━┓\n"
+        "     💸 𝗗𝗘𝗣𝗢𝗦𝗜𝗧 𝗗𝗘𝗧𝗔𝗜𝗟𝗦\n"
+        "┗━━━━━━━━━━━━━━━━━━━━┛\n"
+        "\n"
+        f"  𝗔𝗠𝗢𝗨𝗡𝗧 : <b>₹{amount:.0f}</b>\n"
+        "  𝗨𝗣𝗜 𝗜𝗗 : <code>KaizenSeller@ybl</code>\n"
+        "  𝗡𝗔𝗠𝗘   : 𝗕𝗛𝗔𝗥𝗔𝗧 𝗟𝗔𝗟 𝗚𝗨𝗣𝗧𝗔\n"
+        "\n"
+        "  📸 𝗦𝗘𝗡𝗗 𝗣𝗔𝗬𝗠𝗘𝗡𝗧 𝗦𝗖𝗥𝗘𝗘𝗡𝗦𝗛𝗢𝗧\n"
+        "  ✅ 𝗔𝗗𝗠𝗜𝗡 𝗪𝗜𝗟𝗟 𝗔𝗣𝗣𝗥𝗢𝗩𝗘 & 𝗔𝗗𝗗 𝗕𝗔𝗟𝗔𝗡𝗖𝗘\n"
     )
 
 

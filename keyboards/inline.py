@@ -101,7 +101,19 @@ def deposit_cancel_keyboard() -> InlineKeyboardMarkup:
     """Cancel button during deposit flow."""
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text="❌ Cancel", callback_data="deposit_cancel")
+        InlineKeyboardButton(text="❌ 𝗖𝗮𝗻𝗰𝗲𝗹", callback_data="deposit_cancel")
+    )
+    return builder.as_markup()
+
+
+def deposit_check_keyboard() -> InlineKeyboardMarkup:
+    """Check Now button - shown after QR with amount. User sends screenshot after paying."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✅ 𝗖𝗵𝗲𝗰𝗸 𝗡𝗼𝘄", callback_data="deposit_check_now")
+    )
+    builder.row(
+        InlineKeyboardButton(text="❌ 𝗖𝗮𝗻𝗰𝗲𝗹", callback_data="deposit_cancel")
     )
     return builder.as_markup()
 
