@@ -7,16 +7,18 @@ import json
 
 
 def format_welcome(first_name: str, balance: float) -> str:
-    """Format the welcome/start message."""
+    """Format the welcome/start message with premium branding."""
     return (
-        f"👋 <b>Welcome, {first_name}!</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "📱✨ <b>Telegram Premium Account Shop</b>\n"
-        "Buy verified India TG accounts instantly!\n\n"
-        f"💳 <b>Wallet Balance:</b> ₹{balance:.2f}\n"
-        "📦 <b>Status:</b> ✅ Active\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        "⚡ Select an option below:"
+        f"👋 <b>Welcome, {first_name}!</b>\n\n"
+        "✨ 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙏𝙚𝙡𝙚𝙜𝙧𝙖𝙢 𝙄𝘿𝙨\n"
+        "✨ 𝙑𝙞𝙧𝙩𝙪𝙖𝙡 𝙉𝙪𝙢𝙗𝙚𝙧 𝙑𝙚𝙧𝙞𝙛𝙞𝙚𝙙\n"
+        "✨ 𝘽𝙪𝙡𝙠 𝙊𝙧𝙙𝙚𝙧 𝙊𝙛𝙛𝙚𝙧𝙨\n"
+        "✨ 𝙄𝙣𝙨𝙩𝙖𝙣𝙩 𝘿𝙚𝙡𝙞𝙫𝙚𝙧𝙮\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "    ⚡ 𝟮𝟰/𝟳  •  🔐 𝟭𝟬𝟬% 𝗦𝗮𝗳𝗲\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"💳 <b>Balance:</b> ₹{balance:.2f}\n"
+        "📦 <b>Status:</b> ✅ Active\n"
     )
 
 

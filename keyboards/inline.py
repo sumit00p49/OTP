@@ -5,7 +5,6 @@ Simplified: India-only TG Premium accounts at fixed ₹60.
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from config import ACCOUNT_PRICE_INR
 
 
 # ==================== Main Menu ====================
@@ -15,19 +14,19 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(
-            text=f"📱✨ Buy TG Premium Acc — ₹{ACCOUNT_PRICE_INR:.0f}",
+            text="📱 𝐁𝐮𝐲 𝐓𝐞𝐥𝐞𝐠𝐫𝐚𝐦 𝐀𝐜𝐜𝐨𝐮𝐧𝐭",
             callback_data="buy_account",
         )
     )
     builder.row(
-        InlineKeyboardButton(text="💰 Deposit Funds", callback_data="deposit_start"),
-        InlineKeyboardButton(text="💳 My Balance", callback_data="check_balance"),
+        InlineKeyboardButton(text="💰 𝘿𝙚𝙥𝙤𝙨𝙞𝙩", callback_data="deposit_start"),
+        InlineKeyboardButton(text="💳 𝙒𝙖𝙡𝙡𝙚𝙩", callback_data="check_balance"),
     )
     builder.row(
-        InlineKeyboardButton(text="📋 My Orders", callback_data="my_orders")
+        InlineKeyboardButton(text="📋 𝖮𝗋𝖽𝖾𝗋 𝖧𝗂𝗌𝗍𝗈𝗋𝗒", callback_data="my_orders")
     )
     builder.row(
-        InlineKeyboardButton(text="🆘 Support", callback_data="support")
+        InlineKeyboardButton(text="🆘 𝐒𝐮𝐩𝐩𝐨𝐫𝐭", callback_data="support")
     )
     return builder.as_markup()
 
