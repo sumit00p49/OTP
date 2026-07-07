@@ -89,10 +89,10 @@ def deposit_menu_keyboard() -> InlineKeyboardMarkup:
     """Deposit info menu."""
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text="💸 Make Deposit", callback_data="deposit_amount")
+        InlineKeyboardButton(text="💸 𝗠𝗮𝗸𝗲 𝗗𝗲𝗽𝗼𝘀𝗶𝘁", callback_data="deposit_amount")
     )
     builder.row(
-        InlineKeyboardButton(text="⬅️ Back", callback_data="back_main")
+        InlineKeyboardButton(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data="back_main")
     )
     return builder.as_markup()
 

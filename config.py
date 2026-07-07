@@ -30,7 +30,7 @@ ADMIN_GROUP_ID = int(os.getenv("ADMIN_GROUP_ID", "0"))
 
 # ==================== UPI Payment Details ====================
 UPI_ID = os.getenv("UPI_ID", "KaizenSeller@ybl")
-UPI_NAME = os.getenv("UPI_NAME", "Kaizen Seller")
+UPI_NAME = os.getenv("UPI_NAME", "BHARAT LAL GUPTA")
 # UPI QR code image URL or local file path (set to generate auto QR)
 UPI_QR_URL = os.getenv("UPI_QR_URL", "")
 
