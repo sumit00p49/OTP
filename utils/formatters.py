@@ -241,13 +241,11 @@ def format_deposit_screenshot_prompt(amount: float) -> str:
 
 
 def format_deposit_pending() -> str:
-    """Deposit submitted confirmation."""
+    """Deposit submitted confirmation - styled small caps."""
     return (
-        "⏳ <b>Deposit Submitted!</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "Sent to admin for verification.\n"
-        "You'll be notified once approved.\n\n"
-        "💡 Usually takes 2-5 minutes."
+        "ᴛʜᴀɴᴋs ғᴏʀ ᴅᴇᴘᴏsɪᴛ ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ .\n"
+        "\n"
+        "ᴏᴜʀ ᴀᴅᴍɪɴs ᴡɪʟʟ sᴏᴏɴ ᴄʜᴇᴄᴋ ᴀɴᴅ ᴀᴘᴘʀᴏᴠᴇ."
     )
 
 

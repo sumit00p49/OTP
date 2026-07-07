@@ -79,8 +79,9 @@ async def deposit_cancel(callback: CallbackQuery, state: FSMContext):
 async def deposit_check_now(callback: CallbackQuery, state: FSMContext):
     """User clicked Check Now — prompt to send screenshot."""
     await callback.message.answer(
-        "📸 <b>Send your payment screenshot now.</b>\n\n"
-        "⚠️ Make sure it clearly shows the amount and UPI reference.",
+        "📸 𝗦𝗲𝗻𝗱 𝗬𝗼𝘂𝗿 𝗣𝗮𝘆𝗺𝗲𝗻𝘁 𝗦𝗰𝗿𝗲𝗲𝗻𝘀𝗵𝗼𝘁 𝗡𝗼𝘄.\n"
+        "\n"
+        "⚠️ 𝗠𝗮𝗸𝗲 𝗦𝘂𝗿𝗲 𝗜𝘁 𝗖𝗹𝗲𝗮𝗿𝗹𝘆 𝗦𝗵𝗼𝘄𝘀 𝗧𝗵𝗲 𝗔𝗺𝗼𝘂𝗻𝘁 𝗔𝗻𝗱 𝗨𝗣𝗜 𝗥𝗲𝗳𝗲𝗿𝗲𝗻𝗰𝗲.",
         parse_mode="HTML",
     )
     await callback.answer()
