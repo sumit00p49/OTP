@@ -148,36 +148,92 @@ class LZTMarketAPI:
         return await self._request("GET", f"/{item_id}")
 
     async def get_telegram_login_code(self, item_id) -> Optional[str]:
-        """Fetch latest Telegram login code for a purchased account."""
+        """
+        Request a fresh Telegram login code for a purchased account.
+        LZT endpoint: GET /{item_id}/telegram-login-code
+        This triggers code generation AND returns it.
+        """
         try:
             result = await self._request("GET", f"/{item_id}/telegram-login-code")
-            return result.get("code") or result.get("login_code")
-        except LZTAPIError:
+            # LZT may return code in different fields
+            code = (
+                result.get("code")
+                or result.get("login_code")
+                or result.get("item", {}).get("telegram_code")
+                or result.get("item", {}).get("loginCode")
+            )
+            # Sometimes the code is nested
+            if not code and result.get("item"):
+                item = result["item"]
+                login_data = item.get("loginData", {}) or {}
+                code = login_data.get("code") or login_data.get("login_code")
+            return code
+        except LZTAPIError as e:
+            logger.warning("telegram-login-code failed for item %s: %s", item_id, e.message)
             return None
 
     @staticmethod
     def extract_account_data(payload: dict) -> dict:
-        """Normalize account details from a buy/item response."""
+        """
+        Normalize account details from a buy/item response.
+
+        IMPORTANT: For Telegram accounts on LZT:
+        - loginData.login = Auth Key (HEX) — NOT the phone number!
+        - Phone number is in separate fields: telegramPhone, account_phone, etc.
+        - The "title" field often contains the phone like "+91 6239430752"
+        """
         item = payload.get("item", payload)
         login_data = item.get("loginData", {}) or {}
 
+        # Phone number — try dedicated phone fields FIRST (not loginData.login which is auth key)
         phone = (
-            login_data.get("login")
-            or item.get("account_phone")
+            item.get("telegramPhone")
             or item.get("telegram_phone")
-            or item.get("title", "N/A")
+            or item.get("account_phone")
+            or item.get("phone")
+            # title often has phone like "+880 +91 +62 | Second hand account"
+            # Only use title if it looks like a phone number
+            or _extract_phone_from_title(item.get("title", ""))
+            or "N/A"
         )
+
+        # Auth key (the big hex string) — this is what loginData.login contains
+        auth_key = login_data.get("login") or ""
+
+        # Password / 2FA
         password = login_data.get("password") or item.get("account_password") or ""
         twofa = login_data.get("2fa") or item.get("account_2fa") or ""
 
         return {
             "item_id": str(item.get("item_id", item.get("id", ""))),
             "phone": phone,
+            "auth_key": auth_key,
             "password": password or "N/A",
             "2fa": twofa,
             "has_tdata": bool(item.get("telegram_json") or item.get("hasTdata")),
             "raw_login": login_data,
         }
+
+
+def _extract_phone_from_title(title: str) -> str:
+    """
+    Try to extract a phone number from the item title.
+    LZT titles look like: "+880 +91 +62 | Second hand account |"
+    We want the actual phone, which is usually in a more specific field.
+    If title starts with digits or +, extract it.
+    """
+    if not title:
+        return ""
+    # If title contains a clear phone pattern
+    import re
+    # Match patterns like "916239430752" or "+91 6239430752" or "+916239430752"
+    match = re.search(r'(\+?\d[\d\s]{8,15})', title)
+    if match:
+        phone = match.group(1).replace(" ", "")
+        # Only return if it's a reasonable phone number length (not an auth key)
+        if 8 <= len(phone.replace("+", "")) <= 15:
+            return phone
+    return ""
 
 
 # Singleton

@@ -83,11 +83,34 @@ async def main():
 
         # 2) Search stock in the category
         status, data = await hit(
-            session, "GET", f"/{CATEGORY}", params={"order_by": "price_to_up"}
+            session, "GET", f"/{CATEGORY}", params={"country[]": "IN", "order_by": "price_to_up"}
         )
-        show(f"TEST 2: Stock list  ->  GET /{CATEGORY}", status, data)
+        show(f"TEST 2: India stock  ->  GET /{CATEGORY}?country[]=IN", status, data)
 
-        # 3) Category list (helps confirm the right slug)
+        # If we found items, show the first item's fields
+        if isinstance(data, dict) and data.get("items"):
+            items = data["items"]
+            if isinstance(items, dict):
+                first_item = list(items.values())[0]
+            elif isinstance(items, list) and items:
+                first_item = items[0]
+            else:
+                first_item = None
+
+            if first_item:
+                show("TEST 2b: First item details (FIELD NAMES)", "—", {
+                    "item_id": first_item.get("item_id"),
+                    "title": first_item.get("title"),
+                    "price": first_item.get("price"),
+                    "telegramPhone": first_item.get("telegramPhone"),
+                    "telegram_phone": first_item.get("telegram_phone"),
+                    "account_phone": first_item.get("account_phone"),
+                    "phone": first_item.get("phone"),
+                    "loginData_keys": list((first_item.get("loginData") or {}).keys()),
+                    "ALL_KEYS": list(first_item.keys()),
+                })
+
+        # 3) Category list
         status, data = await hit(session, "GET", "/category")
         show("TEST 3: Categories  ->  GET /category", status, data)
 
