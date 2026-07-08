@@ -56,7 +56,12 @@ async def select_india(callback: CallbackQuery, state: FSMContext):
     """User selected India — ask for quantity as text input."""
     await state.set_state(ShopStates.waiting_quantity)
     await callback.message.edit_text(
-        "𝖲𝖾𝗇𝖽 𝖳𝗁𝖾 𝖰𝗎𝖺𝗇𝗍𝗂𝗍𝗒 𝖸𝗈𝗎 𝖶𝖺𝗇𝗍 𝖳𝗈 𝖡𝗎𝗒:",
+        "🟢 𝖲𝖾𝗇𝖽 𝖳𝗁𝖾 𝖰𝗎𝖺𝗇𝗍𝗂𝗍𝗒 𝖸𝗈𝗎 𝖶𝖺𝗇𝗍 𝖳𝗈 𝖡𝗎𝗒:\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        f"🌍 Country: India\n"
+        f"🏷️ Per Account: ₹{ACCOUNT_PRICE_INR:.2f}\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "Please 𝖲𝖾𝗇𝖽 𝖳𝗁𝖾 𝖰𝗎𝖺𝗇𝗍𝗂𝗍𝗒 𝖸𝗈𝗎 𝖶𝖺𝗇𝗍 𝖳𝗈 𝖡𝗎𝗒:",
         parse_mode="HTML",
     )
     await callback.answer()
