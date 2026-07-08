@@ -181,16 +181,21 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
 
             buy_result = await lzt_api.buy(item_id, price=lzt_price, currency="usd")
 
-            # After buying, fetch full item details (has phone number clearly)
+            # After buying, fetch full item details (phone only visible after purchase)
             try:
                 item_details = await lzt_api.get_item(item_id)
                 account_data = lzt_api.extract_account_data(item_details)
-            except Exception:
-                # Fallback to buy response
+                # Log the raw keys and phone for debugging
+                logger.info(
+                    "Purchase #%d item %s — phone=%s, raw_keys=%s, loginData_keys=%s",
+                    i + 1, item_id,
+                    account_data.get("phone"),
+                    account_data.get("raw_keys"),
+                    list((item_details.get("item", item_details).get("loginData") or {}).keys()),
+                )
+            except Exception as e:
+                logger.warning("get_item failed after buy, using buy_result: %s", e)
                 account_data = lzt_api.extract_account_data(buy_result)
-
-            # Log raw response for debugging (first few purchases)
-            logger.info("Purchase #%d item %s - phone: %s", i + 1, item_id, account_data.get("phone"))
 
             # Best-effort: fetch login code
             login_code = await lzt_api.get_telegram_login_code(item_id)

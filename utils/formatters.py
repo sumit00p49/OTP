@@ -359,8 +359,14 @@ def format_otp_not_ready() -> str:
         "\n"
         "Code hasn't arrived yet.\n"
         "\n"
-        "💡 Open Telegram, enter the phone number,\n"
-        "then press <b>🔑 Get OTP</b> again in ~10 seconds."
+        "💡 <b>Steps:</b>\n"
+        "1. Open Telegram app on another device\n"
+        "2. Try to login with the phone number\n"
+        "3. Wait 10 seconds\n"
+        "4. Press <b>🔑 Get OTP</b> again\n"
+        "\n"
+        "⚠️ If code still doesn't come, the account\n"
+        "may need TData login instead."
     )
 
 

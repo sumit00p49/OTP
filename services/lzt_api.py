@@ -151,23 +151,36 @@ class LZTMarketAPI:
         """
         Request a fresh Telegram login code for a purchased account.
         LZT endpoint: GET /{item_id}/telegram-login-code
-        This triggers code generation AND returns it.
+        
+        From the LZT web UI, this is the "Get a code" button.
+        It both TRIGGERS code sending to the phone AND returns it.
         """
         try:
             result = await self._request("GET", f"/{item_id}/telegram-login-code")
-            # LZT may return code in different fields
+            logger.info("telegram-login-code response for %s: %s", item_id, str(result)[:500])
+
+            # Try all known field paths
             code = (
                 result.get("code")
                 or result.get("login_code")
-                or result.get("item", {}).get("telegram_code")
-                or result.get("item", {}).get("loginCode")
+                or result.get("loginCode")
+                or result.get("telegramCode")
             )
-            # Sometimes the code is nested
+
+            # Check nested in "item"
             if not code and result.get("item"):
                 item = result["item"]
+                code = (
+                    item.get("code")
+                    or item.get("login_code")
+                    or item.get("loginCode")
+                    or item.get("telegramCode")
+                )
                 login_data = item.get("loginData", {}) or {}
-                code = login_data.get("code") or login_data.get("login_code")
-            return code
+                if not code:
+                    code = login_data.get("code") or login_data.get("login_code")
+
+            return code if code else None
         except LZTAPIError as e:
             logger.warning("telegram-login-code failed for item %s: %s", item_id, e.message)
             return None
@@ -177,41 +190,76 @@ class LZTMarketAPI:
         """
         Normalize account details from a buy/item response.
 
-        IMPORTANT: For Telegram accounts on LZT:
-        - loginData.login = Auth Key (HEX) — NOT the phone number!
-        - Phone number is in separate fields: telegramPhone, account_phone, etc.
-        - The "title" field often contains the phone like "+91 6239430752"
+        REAL LZT BEHAVIOR (confirmed from test_api.py output):
+        - Search results: phone/loginData are EMPTY (canViewLoginData: false)
+        - After purchase: GET /{item_id} returns loginData with auth key
+        - Phone is in a separate field that only appears after ownership
+        
+        Known fields after purchase:
+        - item.telegramPhone or item.telegram_phone_number
+        - loginData.login = auth key (HEX), NOT phone
+        - loginData.password = 2FA password (if exists)
+        - item.accountLink = phone number sometimes
         """
         item = payload.get("item", payload)
         login_data = item.get("loginData", {}) or {}
 
-        # Phone number — try dedicated phone fields FIRST (not loginData.login which is auth key)
+        # Phone number extraction — check ALL possible fields
+        # Priority: dedicated phone fields > accountLink > title parsing
         phone = (
             item.get("telegramPhone")
+            or item.get("telegram_phone_number")
             or item.get("telegram_phone")
             or item.get("account_phone")
             or item.get("phone")
-            # title often has phone like "+880 +91 +62 | Second hand account"
-            # Only use title if it looks like a phone number
-            or _extract_phone_from_title(item.get("title", ""))
-            or "N/A"
+            or item.get("phoneNumber")
+            or ""
         )
 
-        # Auth key (the big hex string) — this is what loginData.login contains
-        auth_key = login_data.get("login") or ""
+        # Check accountLink / accountLinks (sometimes has the phone)
+        if not phone:
+            account_link = item.get("accountLink") or ""
+            if account_link and any(c.isdigit() for c in account_link):
+                phone = account_link
+
+        # Check loginData for phone (some responses put it differently)
+        if not phone:
+            phone = login_data.get("phone") or login_data.get("phoneNumber") or ""
+
+        # loginData.login is the AUTH KEY (hex) — check if it's actually a phone
+        # Phone numbers are max 15 digits, auth keys are 64+ hex chars
+        login_field = login_data.get("login") or ""
+        if not phone and login_field:
+            # Only use it if it looks like a phone (short, numeric)
+            clean = login_field.replace("+", "").replace(" ", "")
+            if clean.isdigit() and len(clean) <= 15:
+                phone = login_field
+
+        # If still no phone, try title parsing
+        if not phone:
+            phone = _extract_phone_from_title(item.get("title", ""))
+
+        if not phone:
+            phone = "N/A"
+
+        # Auth key
+        auth_key = ""
+        if login_field and len(login_field) > 20:
+            auth_key = login_field
 
         # Password / 2FA
         password = login_data.get("password") or item.get("account_password") or ""
-        twofa = login_data.get("2fa") or item.get("account_2fa") or ""
+        twofa = login_data.get("2fa") or login_data.get("twofa") or item.get("account_2fa") or ""
 
         return {
             "item_id": str(item.get("item_id", item.get("id", ""))),
             "phone": phone,
             "auth_key": auth_key,
-            "password": password or "N/A",
+            "password": password,
             "2fa": twofa,
             "has_tdata": bool(item.get("telegram_json") or item.get("hasTdata")),
             "raw_login": login_data,
+            "raw_keys": list(item.keys())[:20],  # Debug: first 20 keys
         }
 
 
