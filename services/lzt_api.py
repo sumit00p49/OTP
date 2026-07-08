@@ -150,40 +150,85 @@ class LZTMarketAPI:
     async def get_telegram_login_code(self, item_id) -> Optional[str]:
         """
         Request a fresh Telegram login code for a purchased account.
-        LZT endpoint: GET /{item_id}/telegram-login-code
         
-        From the LZT web UI, this is the "Get a code" button.
-        It both TRIGGERS code sending to the phone AND returns it.
+        LZT Web UI button: "Get a code" 
+        Tries both POST and GET methods (LZT docs are unclear on which).
+        The endpoint REQUESTS a code to be sent to the account, then returns it.
         """
+        # Try POST first (LZT web UI uses POST for "Get a code" button)
+        try:
+            result = await self._request("POST", f"/{item_id}/telegram-login-code")
+            logger.info("telegram-login-code POST for %s: %s", item_id, str(result)[:500])
+            code = self._extract_code_from_response(result)
+            if code:
+                return code
+        except LZTAPIError as e:
+            logger.info("POST telegram-login-code failed for %s: %s — trying GET", item_id, e.message)
+
+        # Fallback: try GET
         try:
             result = await self._request("GET", f"/{item_id}/telegram-login-code")
-            logger.info("telegram-login-code response for %s: %s", item_id, str(result)[:500])
-
-            # Try all known field paths
-            code = (
-                result.get("code")
-                or result.get("login_code")
-                or result.get("loginCode")
-                or result.get("telegramCode")
-            )
-
-            # Check nested in "item"
-            if not code and result.get("item"):
-                item = result["item"]
-                code = (
-                    item.get("code")
-                    or item.get("login_code")
-                    or item.get("loginCode")
-                    or item.get("telegramCode")
-                )
-                login_data = item.get("loginData", {}) or {}
-                if not code:
-                    code = login_data.get("code") or login_data.get("login_code")
-
-            return code if code else None
+            logger.info("telegram-login-code GET for %s: %s", item_id, str(result)[:500])
+            code = self._extract_code_from_response(result)
+            if code:
+                return code
         except LZTAPIError as e:
-            logger.warning("telegram-login-code failed for item %s: %s", item_id, e.message)
+            logger.warning("GET telegram-login-code also failed for %s: %s", item_id, e.message)
+
+        # Try alternative endpoint path
+        try:
+            result = await self._request("POST", f"/{item_id}/request-code")
+            logger.info("request-code for %s: %s", item_id, str(result)[:500])
+            code = self._extract_code_from_response(result)
+            if code:
+                return code
+        except LZTAPIError:
+            pass
+
+        return None
+
+    @staticmethod
+    def _extract_code_from_response(result: dict) -> Optional[str]:
+        """Extract OTP code from various response formats."""
+        if not result or not isinstance(result, dict):
             return None
+
+        # Direct fields
+        code = (
+            result.get("code")
+            or result.get("login_code")
+            or result.get("loginCode")
+            or result.get("telegramCode")
+            or result.get("telegram_code")
+        )
+        if code:
+            return str(code)
+
+        # Nested in "item"
+        item = result.get("item", {})
+        if isinstance(item, dict):
+            code = (
+                item.get("code")
+                or item.get("login_code")
+                or item.get("loginCode")
+                or item.get("telegramCode")
+                or item.get("telegram_code")
+            )
+            if code:
+                return str(code)
+
+            # Inside loginData
+            login_data = item.get("loginData", {}) or {}
+            code = login_data.get("code") or login_data.get("login_code")
+            if code:
+                return str(code)
+
+        # Sometimes just "message" contains the code as text
+        msg = result.get("message", "")
+        if msg and msg.isdigit() and 4 <= len(msg) <= 8:
+            return msg
+
+        return None
 
     @staticmethod
     def extract_account_data(payload: dict) -> dict:
