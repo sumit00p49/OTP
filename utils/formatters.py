@@ -115,39 +115,22 @@ def format_purchase_processing() -> str:
 
 
 def format_account_details(order_id: str, account_data: dict, price: float) -> str:
-    """Format delivered account details."""
+    """Format delivered account details with login instructions."""
     phone = account_data.get("phone", "N/A")
-    password = account_data.get("password", "")
-    twofa = account_data.get("2fa", "")
-    login_code = account_data.get("login_code", "")
-    item_id = account_data.get("item_id", "")
-    has_tdata = account_data.get("has_tdata", False)
 
-    msg = (
+    return (
         "✅ <b>Purchase Successful!</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🆔 <b>Order:</b> {order_id}\n"
-        f"💵 <b>Paid:</b> ₹{price:.0f}\n"
-        "🇮🇳 <b>Country:</b> India\n\n"
-        "📱 <b>Account Details:</b>\n"
-        f"📞 Phone: <code>{phone}</code>\n"
+        "\n"
+        f"📱 Phone: <code>{phone}</code>\n"
+        "\n"
+        "🔑 <b>Login Instructions:</b>\n"
+        "1. Open Telegram Desktop/Mobile\n"
+        "2. Enter the phone number above\n"
+        "3. Click 'Get OTP' below for verification code\n"
+        "\n"
+        "🔒 <b>Security:</b> Full account control!\n"
+        "🛡️ <b>Security Status:</b> All other sessions terminated!"
     )
-    if password and password != "N/A":
-        msg += f"🔓 Password: <code>{password}</code>\n"
-    if twofa:
-        msg += f"🔐 2FA: <code>{twofa}</code>\n"
-    if login_code:
-        msg += f"📲 Login Code: <code>{login_code}</code>\n"
-    if has_tdata and item_id:
-        msg += f"💾 TData: <code>https://lzt.market/{item_id}/</code>\n"
-
-    msg += (
-        "\n━━━━━━━━━━━━━━━━━━━━━\n"
-        "💡 Use <b>🔄 Get Live OTP</b> button anytime for\n"
-        "a fresh login code.\n"
-        "⚠️ Save these details! No refunds."
-    )
-    return msg
 
 
 def format_purchase_failed_refund(amount: float, reason: str) -> str:
@@ -358,25 +341,26 @@ def format_no_orders() -> str:
 # ==================== Live OTP ====================
 
 def format_live_otp(code: str) -> str:
-    """Fresh live OTP received."""
+    """Fresh OTP received via API."""
     return (
-        "📲 <b>Live OTP Received!</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🔐 Code: <code>{code}</code>\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "🔑 <b>OTP Received!</b>\n"
+        "\n"
+        f"📲 Code: <code>{code}</code>\n"
+        "\n"
         "💡 Tap the code to copy.\n"
-        "Press <b>🔄 Get Live OTP</b> for a new one."
+        "Press <b>🔑 Get OTP</b> again for a new code."
     )
 
 
 def format_otp_not_ready() -> str:
     """No OTP available yet."""
     return (
-        "⏳ <b>No OTP Yet</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "Login code hasn't arrived yet.\n\n"
-        "💡 Trigger a login on the account first, then\n"
-        "press <b>🔄 Get Live OTP</b> again in ~10 seconds."
+        "⏳ <b>OTP Not Ready</b>\n"
+        "\n"
+        "Code hasn't arrived yet.\n"
+        "\n"
+        "💡 Open Telegram, enter the phone number,\n"
+        "then press <b>🔑 Get OTP</b> again in ~10 seconds."
     )
 
 

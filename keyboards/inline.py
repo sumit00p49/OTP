@@ -91,10 +91,10 @@ def account_delivered_keyboard(order_id: str, item_id: str = "") -> InlineKeyboa
     builder = InlineKeyboardBuilder()
     if item_id:
         builder.row(
-            InlineKeyboardButton(text="🔄 Get Live OTP", callback_data=f"get_otp:{item_id}")
+            InlineKeyboardButton(text="🔑 Get OTP", callback_data=f"get_otp:{item_id}")
         )
     builder.row(
-        InlineKeyboardButton(text="📱✨ Buy Another", callback_data="buy_account"),
+        InlineKeyboardButton(text="📱 Buy Another", callback_data="buy_account"),
         InlineKeyboardButton(text="🏠 Menu", callback_data="back_main"),
     )
     return builder.as_markup()
@@ -191,11 +191,11 @@ def orders_list_keyboard(orders: list, page: int = 0, per_page: int = 5) -> Inli
 
 
 def order_detail_keyboard(order_id: str, item_id: str = "") -> InlineKeyboardMarkup:
-    """Single order detail view with Live OTP button."""
+    """Single order detail view with Get OTP button."""
     builder = InlineKeyboardBuilder()
     if item_id:
         builder.row(
-            InlineKeyboardButton(text="🔄 Get Live OTP", callback_data=f"get_otp:{item_id}")
+            InlineKeyboardButton(text="🔑 Get OTP", callback_data=f"get_otp:{item_id}")
         )
     builder.row(
         InlineKeyboardButton(text="⬅️ Back to Orders", callback_data="my_orders")
