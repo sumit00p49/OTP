@@ -25,16 +25,19 @@ def format_welcome(first_name: str, balance: float) -> str:
     )
 
 
+def format_buy_country_select() -> str:
+    """Country/product selection screen."""
+    return "📱 <b>𝐁𝐮𝐲 𝐓𝐞𝐥𝐞𝐠𝐫𝐚𝐦 𝐀𝐜𝐜𝐨𝐮𝐧𝐭</b>\n\n⚡ Select:"
+
+
 def format_quantity_select(price_per: float) -> str:
     """Quantity selection screen."""
     return (
-        "📱✨ <b>Buy India TG Accounts</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "🇮🇳 <b>Country:</b> India (+91)\n"
-        "🔐 <b>Includes:</b> Password + Login Code\n"
-        f"💵 <b>Price:</b> ₹{price_per:.0f} per account\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        "📦 <b>How many accounts do you want?</b>"
+        "📱 <b>𝐁𝐮𝐲 𝐓𝐞𝐥𝐞𝐠𝐫𝐚𝐦 𝐀𝐜𝐜𝐨𝐮𝐧𝐭</b>\n"
+        "\n"
+        f"🇮🇳 INDIAN  —  ₹{price_per:.0f}\n"
+        "\n"
+        "📦 Select quantity:"
     )
 
 

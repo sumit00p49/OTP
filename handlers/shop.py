@@ -15,12 +15,14 @@ from aiogram.fsm.context import FSMContext
 from config import ACCOUNT_PRICE_INR, MAX_LZT_PRICE_USD, ACCOUNT_COUNTRY
 from states.deposit_states import ShopStates
 from keyboards.inline import (
+    buy_country_keyboard,
     quantity_select_keyboard,
     buy_confirm_keyboard,
     account_delivered_keyboard,
     back_to_main_keyboard,
 )
 from utils.formatters import (
+    format_buy_country_select,
     format_quantity_select,
     format_buy_confirm,
     format_purchase_processing_multi,
@@ -41,8 +43,19 @@ router = Router()
 
 @router.callback_query(F.data == "buy_account")
 async def buy_account_start(callback: CallbackQuery, state: FSMContext):
-    """Show quantity selection."""
+    """Show country/product selection."""
     await state.clear()
+    await callback.message.edit_text(
+        format_buy_country_select(),
+        reply_markup=buy_country_keyboard(ACCOUNT_PRICE_INR),
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "select_india")
+async def select_india(callback: CallbackQuery, state: FSMContext):
+    """User selected India — show quantity selection."""
     await callback.message.edit_text(
         format_quantity_select(ACCOUNT_PRICE_INR),
         reply_markup=quantity_select_keyboard(),

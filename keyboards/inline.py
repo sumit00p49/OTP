@@ -31,6 +31,23 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+# ==================== Buy / Country Selection ====================
+
+def buy_country_keyboard(price: float) -> InlineKeyboardMarkup:
+    """Show available country with price as inline button."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text=f"🇮🇳 INDIAN  —  {price:.0f} Rs",
+            callback_data="select_india",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data="back_main")
+    )
+    return builder.as_markup()
+
+
 # ==================== Buy / Quantity ====================
 
 def quantity_select_keyboard() -> InlineKeyboardMarkup:

@@ -18,7 +18,7 @@ LZT_BASE_URL = os.getenv("LZT_BASE_URL", "https://prod-api.lzt.market")
 
 # ==================== Product Configuration ====================
 # Fixed price user pays (INR)
-ACCOUNT_PRICE_INR = float(os.getenv("ACCOUNT_PRICE_INR", "60.0"))
+ACCOUNT_PRICE_INR = float(os.getenv("ACCOUNT_PRICE_INR", "70.0"))
 # Max price we're willing to pay on LZT (USD) - safety cap
 MAX_LZT_PRICE_USD = float(os.getenv("MAX_LZT_PRICE_USD", "0.15"))
 # Country filter for LZT search
