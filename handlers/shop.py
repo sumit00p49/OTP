@@ -16,14 +16,12 @@ from config import ACCOUNT_PRICE_INR, MAX_LZT_PRICE_USD, ACCOUNT_COUNTRY
 from states.deposit_states import ShopStates
 from keyboards.inline import (
     buy_country_keyboard,
-    quantity_select_keyboard,
     buy_confirm_keyboard,
     account_delivered_keyboard,
     back_to_main_keyboard,
 )
 from utils.formatters import (
     format_buy_country_select,
-    format_quantity_select,
     format_buy_confirm,
     format_purchase_processing_multi,
     format_account_details,
@@ -55,10 +53,10 @@ async def buy_account_start(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "select_india")
 async def select_india(callback: CallbackQuery, state: FSMContext):
-    """User selected India — show quantity selection."""
+    """User selected India — ask for quantity as text input."""
+    await state.set_state(ShopStates.waiting_quantity)
     await callback.message.edit_text(
-        format_quantity_select(ACCOUNT_PRICE_INR),
-        reply_markup=quantity_select_keyboard(),
+        "𝖲𝖾𝗇𝖽 𝖳𝗁𝖾 𝖰𝗎𝖺𝗇𝗍𝗂𝗍𝗒 𝖸𝗈𝗎 𝖶𝖺𝗇𝗍 𝖳𝗈 𝖡𝗎𝗒:",
         parse_mode="HTML",
     )
     await callback.answer()
@@ -66,17 +64,12 @@ async def select_india(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("qty:"))
 async def quantity_selected(callback: CallbackQuery, state: FSMContext):
-    """Handle quantity button click."""
+    """Handle quantity button click (legacy, kept for safety)."""
     value = callback.data.replace("qty:", "")
-
     if value == "custom":
         await state.set_state(ShopStates.waiting_quantity)
         await callback.message.edit_text(
-            "✏️ <b>Custom Quantity</b>\n\n"
-            "Type the number of accounts you want.\n"
-            f"📌 Example: <code>7</code>\n\n"
-            f"💵 Price per account: ₹{ACCOUNT_PRICE_INR:.0f}",
-            reply_markup=back_to_main_keyboard(),
+            "𝖲𝖾𝗇𝖽 𝖳𝗁𝖾 𝖰𝗎𝖺𝗇𝗍𝗂𝗍𝗒 𝖸𝗈𝗎 𝖶𝖺𝗇𝗍 𝖳𝗈 𝖡𝗎𝗒:",
             parse_mode="HTML",
         )
         await callback.answer()
@@ -89,16 +82,12 @@ async def quantity_selected(callback: CallbackQuery, state: FSMContext):
 
 @router.message(ShopStates.waiting_quantity)
 async def custom_quantity_input(message: Message, state: FSMContext):
-    """Handle custom quantity text input."""
+    """Handle quantity text input — auto calculate total."""
     text = message.text.strip() if message.text else ""
     try:
         qty = int(text)
     except (ValueError, TypeError):
-        await message.answer(
-            "⚠️ Please enter a valid number.\n"
-            f"📌 Example: <code>7</code>",
-            parse_mode="HTML",
-        )
+        await message.answer("⚠️ Please enter a valid number.")
         return
 
     if qty < 1:
