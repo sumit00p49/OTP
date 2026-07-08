@@ -149,86 +149,56 @@ class LZTMarketAPI:
 
     async def get_telegram_login_code(self, item_id) -> Optional[str]:
         """
-        Request a fresh Telegram login code for a purchased account.
+        Request Telegram login code for a purchased account.
         
-        LZT Web UI button: "Get a code" 
-        Tries both POST and GET methods (LZT docs are unclear on which).
-        The endpoint REQUESTS a code to be sent to the account, then returns it.
+        CONFIRMED from real API test:
+        - Method: GET (POST returns 404)
+        - Endpoint: GET /{item_id}/telegram-login-code
+        - Response: {"item": {...}, "codes": [{"code": "12345", ...}]}
+        - Code is in: result["codes"][0]["code"]
+        
+        NOTE: Only works if item has showGetTelegramCodeButton: True
+        (accounts with spamblock may have this disabled)
         """
-        # Try POST first (LZT web UI uses POST for "Get a code" button)
-        try:
-            result = await self._request("POST", f"/{item_id}/telegram-login-code")
-            logger.info("telegram-login-code POST for %s: %s", item_id, str(result)[:500])
-            code = self._extract_code_from_response(result)
-            if code:
-                return code
-        except LZTAPIError as e:
-            logger.info("POST telegram-login-code failed for %s: %s — trying GET", item_id, e.message)
-
-        # Fallback: try GET
         try:
             result = await self._request("GET", f"/{item_id}/telegram-login-code")
-            logger.info("telegram-login-code GET for %s: %s", item_id, str(result)[:500])
-            code = self._extract_code_from_response(result)
-            if code:
-                return code
-        except LZTAPIError as e:
-            logger.warning("GET telegram-login-code also failed for %s: %s", item_id, e.message)
+            logger.info("telegram-login-code for %s: keys=%s", item_id, list(result.keys()))
 
-        # Try alternative endpoint path
-        try:
-            result = await self._request("POST", f"/{item_id}/request-code")
-            logger.info("request-code for %s: %s", item_id, str(result)[:500])
-            code = self._extract_code_from_response(result)
-            if code:
-                return code
-        except LZTAPIError:
-            pass
+            # PRIMARY: codes array (confirmed from real response)
+            codes = result.get("codes", [])
+            if codes and isinstance(codes, list) and len(codes) > 0:
+                first_code = codes[0]
+                if isinstance(first_code, dict):
+                    code = first_code.get("code") or first_code.get("login_code")
+                elif isinstance(first_code, str):
+                    code = first_code
+                else:
+                    code = str(first_code)
+                if code:
+                    return str(code)
 
-        return None
-
-    @staticmethod
-    def _extract_code_from_response(result: dict) -> Optional[str]:
-        """Extract OTP code from various response formats."""
-        if not result or not isinstance(result, dict):
-            return None
-
-        # Direct fields
-        code = (
-            result.get("code")
-            or result.get("login_code")
-            or result.get("loginCode")
-            or result.get("telegramCode")
-            or result.get("telegram_code")
-        )
-        if code:
-            return str(code)
-
-        # Nested in "item"
-        item = result.get("item", {})
-        if isinstance(item, dict):
+            # FALLBACK: direct fields
             code = (
-                item.get("code")
-                or item.get("login_code")
-                or item.get("loginCode")
-                or item.get("telegramCode")
-                or item.get("telegram_code")
+                result.get("code")
+                or result.get("login_code")
+                or result.get("loginCode")
             )
             if code:
                 return str(code)
 
-            # Inside loginData
-            login_data = item.get("loginData", {}) or {}
-            code = login_data.get("code") or login_data.get("login_code")
-            if code:
-                return str(code)
+            # Item nested
+            item = result.get("item", {})
+            if isinstance(item, dict):
+                code = item.get("code") or item.get("login_code")
+                if code:
+                    return str(code)
 
-        # Sometimes just "message" contains the code as text
-        msg = result.get("message", "")
-        if msg and msg.isdigit() and 4 <= len(msg) <= 8:
-            return msg
+            logger.info("No code found in response for %s", item_id)
+            return None
 
-        return None
+        except LZTAPIError as e:
+            logger.warning("telegram-login-code failed for %s: %s", item_id, e.message)
+            return None
 
     @staticmethod
     def extract_account_data(payload: dict) -> dict:
@@ -249,62 +219,50 @@ class LZTMarketAPI:
         item = payload.get("item", payload)
         login_data = item.get("loginData", {}) or {}
 
-        # Phone number extraction — check ALL possible fields
-        # Priority: dedicated phone fields > accountLink > title parsing
+        # Phone number (CONFIRMED: telegram_phone field)
         phone = (
-            item.get("telegramPhone")
-            or item.get("telegram_phone_number")
-            or item.get("telegram_phone")
-            or item.get("account_phone")
-            or item.get("phone")
-            or item.get("phoneNumber")
+            item.get("telegram_formatted_phone")  # "+91 93420 65997" (nice format)
+            or item.get("telegram_phone")          # "919342065997"
             or ""
         )
 
-        # Check accountLink / accountLinks (sometimes has the phone)
+        # If still no phone, check login field (only if it looks like a phone)
         if not phone:
-            account_link = item.get("accountLink") or ""
-            if account_link and any(c.isdigit() for c in account_link):
-                phone = account_link
-
-        # Check loginData for phone (some responses put it differently)
-        if not phone:
-            phone = login_data.get("phone") or login_data.get("phoneNumber") or ""
-
-        # loginData.login is the AUTH KEY (hex) — check if it's actually a phone
-        # Phone numbers are max 15 digits, auth keys are 64+ hex chars
-        login_field = login_data.get("login") or ""
-        if not phone and login_field:
-            # Only use it if it looks like a phone (short, numeric)
+            login_field = item.get("login") or ""
             clean = login_field.replace("+", "").replace(" ", "")
             if clean.isdigit() and len(clean) <= 15:
                 phone = login_field
 
-        # If still no phone, try title parsing
         if not phone:
             phone = _extract_phone_from_title(item.get("title", ""))
 
         if not phone:
             phone = "N/A"
 
-        # Auth key
+        # Auth key (the big hex string in "login" field)
         auth_key = ""
-        if login_field and len(login_field) > 20:
+        login_field = item.get("login") or ""
+        if len(login_field) > 30:
             auth_key = login_field
 
-        # Password / 2FA
-        password = login_data.get("password") or item.get("account_password") or ""
-        twofa = login_data.get("2fa") or login_data.get("twofa") or item.get("account_2fa") or ""
+        # 2FA Password (CONFIRMED: loginData["password"])
+        password = login_data.get("password") or login_data.get("encodedPassword") or ""
+
+        # Username
+        username = item.get("telegram_username") or ""
+
+        # Whether OTP is available for this account
+        otp_available = item.get("showGetTelegramCodeButton", False)
 
         return {
             "item_id": str(item.get("item_id", item.get("id", ""))),
             "phone": phone,
             "auth_key": auth_key,
             "password": password,
-            "2fa": twofa,
-            "has_tdata": bool(item.get("telegram_json") or item.get("hasTdata")),
-            "raw_login": login_data,
-            "raw_keys": list(item.keys())[:20],  # Debug: first 20 keys
+            "2fa": password,  # For telegram category, password IS the 2FA code
+            "username": username,
+            "otp_available": otp_available,
+            "has_tdata": bool(item.get("telegram_json")),
         }
 
 

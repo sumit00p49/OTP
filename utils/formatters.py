@@ -117,11 +117,21 @@ def format_purchase_processing() -> str:
 def format_account_details(order_id: str, account_data: dict, price: float) -> str:
     """Format delivered account details with login instructions."""
     phone = account_data.get("phone", "N/A")
+    password = account_data.get("password", "")
+    username = account_data.get("username", "")
+    otp_available = account_data.get("otp_available", False)
 
-    return (
+    msg = (
         "✅ <b>Purchase Successful!</b>\n"
         "\n"
         f"📱 Phone: <code>{phone}</code>\n"
+    )
+    if username:
+        msg += f"👤 Username: @{username}\n"
+    if password:
+        msg += f"🔐 2FA Password: <code>{password}</code>\n"
+
+    msg += (
         "\n"
         "🔑 <b>Login Instructions:</b>\n"
         "1. Open Telegram Desktop/Mobile\n"
@@ -131,6 +141,15 @@ def format_account_details(order_id: str, account_data: dict, price: float) -> s
         "🔒 <b>Security:</b> Full account control!\n"
         "🛡️ <b>Security Status:</b> All other sessions terminated!"
     )
+
+    if not otp_available:
+        msg += (
+            "\n\n"
+            "⚠️ <i>Note: This account may require TData login.\n"
+            "If OTP doesn't work, use TData from your LZT panel.</i>"
+        )
+
+    return msg
 
 
 def format_purchase_failed_refund(amount: float, reason: str) -> str:
