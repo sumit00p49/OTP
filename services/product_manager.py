@@ -118,17 +118,3 @@ def update_product_filters(code: str, filters: dict) -> bool:
 # Initialize products file if not exists
 if not os.path.exists(PRODUCTS_FILE):
     _save_products(DEFAULT_PRODUCTS)
-else:
-    # Migration: remove nsb=1 from existing products (was too restrictive)
-    products = _load_products()
-    changed = False
-    for p in products:
-        if "nsb" in p.get("filters", {}):
-            del p["filters"]["nsb"]
-            changed = True
-        if "telegram_password" in p.get("filters", {}):
-            del p["filters"]["telegram_password"]
-            changed = True
-    if changed:
-        _save_products(products)
-        logger.info("Migrated products.json: removed nsb/telegram_password filters")

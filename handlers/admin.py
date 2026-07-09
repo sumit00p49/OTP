@@ -19,7 +19,7 @@ from config import ADMIN_IDS
 from services.wallet import credit, get_balance
 from services.product_manager import (
     get_all_products, get_product, add_product,
-    remove_product, update_product_price,
+    remove_product, update_product_price, update_product_filters,
 )
 from utils.formatters import format_deposit_approved, format_deposit_rejected
 from database import get_db
@@ -575,6 +575,7 @@ async def products_menu(callback: CallbackQuery, state: FSMContext):
     if products:
         b.row(InlineKeyboardButton(text="🗑️ Remove", callback_data="prod_remove"))
         b.row(InlineKeyboardButton(text="💵 Change Price", callback_data="prod_price"))
+        b.row(InlineKeyboardButton(text="🔧 Edit Filters", callback_data="prod_filters"))
     b.row(InlineKeyboardButton(text="⬅️ Back", callback_data="admin_panel"))
     await callback.message.edit_text(msg, reply_markup=b.as_markup(), parse_mode="HTML")
     await callback.answer()
@@ -730,3 +731,151 @@ async def reject(callback: CallbackQuery):
     try: await callback.message.edit_caption(caption=f"{callback.message.caption}\n\n❌ REJECTED", parse_mode="HTML", reply_markup=None)
     except: pass
     await callback.answer("❌ Rejected", show_alert=True)
+
+
+
+# ==================== FILTER EDITOR ====================
+# Available LZT Telegram filters (from website screenshot):
+LZT_FILTERS = [
+    {"key": "nsb", "val": 1, "label": "🟢 No Spam Block", "desc": "Only accounts WITHOUT spam block (login works)"},
+    {"key": "sb", "val": 1, "label": "🔴 Has Spam Block", "desc": "Only accounts WITH spam block"},
+    {"key": "origin[]", "val": "resale", "label": "📦 Resale", "desc": "Resold accounts (cheapest)"},
+    {"key": "origin[]", "val": "autoreg", "label": "🤖 Autoreg", "desc": "Auto-registered (cleaner)"},
+    {"key": "origin[]", "val": "personal", "label": "👤 Personal", "desc": "Real personal accounts"},
+    {"key": "origin[]", "val": "stealer", "label": "🕵️ Stealer", "desc": "From stealers/phishing"},
+    {"key": "telegram_password", "val": 1, "label": "🔐 Has 2FA Password", "desc": "Account has password"},
+    {"key": "telegram_password", "val": 0, "label": "🔓 No Password", "desc": "No 2FA password"},
+    {"key": "not_sold_before", "val": 1, "label": "🆕 Never Sold Before", "desc": "First-time sale only"},
+    {"key": "telegram_premium", "val": 1, "label": "⭐ Has Premium", "desc": "Telegram Premium accounts only"},
+]
+
+
+@router.callback_query(F.data == "prod_filters")
+async def filter_select_country(callback: CallbackQuery):
+    """Select which country to edit filters for."""
+    if callback.from_user.id not in ADMIN_IDS: return
+    b = InlineKeyboardBuilder()
+    for p in get_all_products():
+        b.row(InlineKeyboardButton(text=f"🔧 {p['flag']} {p['name']}", callback_data=f"filteredit:{p['code']}"))
+    b.row(InlineKeyboardButton(text="⬅️ Back", callback_data="admin_products"))
+    await callback.message.edit_text("🔧 <b>Edit Filters</b>\n\nSelect country:", reply_markup=b.as_markup(), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("filteredit:"))
+async def filter_editor(callback: CallbackQuery):
+    """Show filter toggle buttons for a country."""
+    if callback.from_user.id not in ADMIN_IDS: return
+    code = callback.data.split(":")[1]
+    product = get_product(code)
+    if not product:
+        return await callback.answer("❌ Not found", show_alert=True)
+
+    current_filters = product.get("filters", {})
+    msg = f"🔧 <b>Filters: {product['flag']} {product['name']}</b>\n━━━━━━━━━━━━━━━━━━━━━\n\n"
+    msg += "<b>Current:</b> "
+    if current_filters:
+        msg += ", ".join(f"{k}={v}" for k,v in current_filters.items())
+    else:
+        msg += "None (all accounts)"
+    msg += "\n\n<b>Tap to toggle ON/OFF:</b>\n"
+
+    b = InlineKeyboardBuilder()
+    for f in LZT_FILTERS:
+        # Check if this filter is currently active
+        is_on = current_filters.get(f["key"]) == f["val"]
+        icon = "✅" if is_on else "⬜"
+        b.row(InlineKeyboardButton(
+            text=f"{icon} {f['label']}",
+            callback_data=f"ftoggle:{code}:{f['key']}:{f['val']}",
+        ))
+
+    b.row(InlineKeyboardButton(text="🗑️ Clear All Filters", callback_data=f"fclear:{code}"))
+    b.row(InlineKeyboardButton(text="⬅️ Back", callback_data="admin_products"))
+    await callback.message.edit_text(msg, reply_markup=b.as_markup(), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("ftoggle:"))
+async def filter_toggle(callback: CallbackQuery):
+    """Toggle a filter on/off for a country."""
+    if callback.from_user.id not in ADMIN_IDS: return
+    parts = callback.data.split(":")
+    code = parts[1]
+    key = parts[2]
+    val_str = parts[3]
+
+    # Parse value (could be int or string)
+    try:
+        val = int(val_str)
+    except ValueError:
+        val = val_str
+
+    product = get_product(code)
+    if not product: return
+    current_filters = product.get("filters", {}).copy()
+
+    # Toggle: if key=val exists, remove it. Otherwise add it.
+    # Special: origin[] can only have one value at a time
+    if key == "origin[]":
+        if current_filters.get(key) == val:
+            del current_filters[key]
+        else:
+            current_filters[key] = val
+    elif key in ("nsb", "sb"):
+        # nsb and sb are mutually exclusive
+        if current_filters.get(key) == val:
+            del current_filters[key]
+        else:
+            current_filters.pop("nsb", None)
+            current_filters.pop("sb", None)
+            current_filters[key] = val
+    elif key == "telegram_password":
+        if current_filters.get(key) == val:
+            del current_filters[key]
+        else:
+            current_filters[key] = val
+    else:
+        if current_filters.get(key) == val:
+            del current_filters[key]
+        else:
+            current_filters[key] = val
+
+    update_product_filters(code, current_filters)
+    await callback.answer("✅ Updated!")
+
+    # Re-render the filter editor
+    product = get_product(code)
+    current_filters = product.get("filters", {})
+    msg = f"🔧 <b>Filters: {product['flag']} {product['name']}</b>\n━━━━━━━━━━━━━━━━━━━━━\n\n"
+    msg += "<b>Current:</b> "
+    msg += (", ".join(f"{k}={v}" for k,v in current_filters.items()) if current_filters else "None")
+    msg += "\n\n<b>Tap to toggle ON/OFF:</b>\n"
+
+    b = InlineKeyboardBuilder()
+    for f in LZT_FILTERS:
+        is_on = current_filters.get(f["key"]) == f["val"]
+        icon = "✅" if is_on else "⬜"
+        b.row(InlineKeyboardButton(text=f"{icon} {f['label']}", callback_data=f"ftoggle:{code}:{f['key']}:{f['val']}"))
+    b.row(InlineKeyboardButton(text="🗑️ Clear All", callback_data=f"fclear:{code}"))
+    b.row(InlineKeyboardButton(text="⬅️ Back", callback_data="admin_products"))
+    await callback.message.edit_text(msg, reply_markup=b.as_markup(), parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("fclear:"))
+async def filter_clear(callback: CallbackQuery):
+    """Clear all filters for a country."""
+    if callback.from_user.id not in ADMIN_IDS: return
+    code = callback.data.split(":")[1]
+    update_product_filters(code, {})
+    await callback.answer("🗑️ All filters cleared!")
+    # Re-render
+    product = get_product(code)
+    msg = f"🔧 <b>Filters: {product['flag']} {product['name']}</b>\n━━━━━━━━━━━━━━━━━━━━━\n\n"
+    msg += "<b>Current:</b> None (all accounts)\n\n<b>Tap to toggle ON/OFF:</b>\n"
+    b = InlineKeyboardBuilder()
+    for f in LZT_FILTERS:
+        b.row(InlineKeyboardButton(text=f"⬜ {f['label']}", callback_data=f"ftoggle:{code}:{f['key']}:{f['val']}"))
+    b.row(InlineKeyboardButton(text="🗑️ Clear All", callback_data=f"fclear:{code}"))
+    b.row(InlineKeyboardButton(text="⬅️ Back", callback_data="admin_products"))
+    await callback.message.edit_text(msg, reply_markup=b.as_markup(), parse_mode="HTML")
