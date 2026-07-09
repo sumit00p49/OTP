@@ -12,7 +12,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from config import PRODUCTS, get_product
+from services.product_manager import get_all_products, get_product
 from states.deposit_states import ShopStates
 from keyboards.inline import (
     buy_country_keyboard,

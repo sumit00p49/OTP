@@ -5,7 +5,7 @@ Simplified: India-only TG Premium accounts at fixed ₹60.
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from config import PRODUCTS
+from services.product_manager import get_all_products
 
 
 # ==================== Main Menu ====================
@@ -35,9 +35,9 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
 # ==================== Buy / Country Selection ====================
 
 def buy_country_keyboard() -> InlineKeyboardMarkup:
-    """Dynamically generate country buttons from PRODUCTS config."""
+    """Dynamically generate country buttons from products.json."""
     builder = InlineKeyboardBuilder()
-    for product in PRODUCTS:
+    for product in get_all_products():
         flag = product.get("flag", "🌍")
         name = product.get("name", product["code"])
         price = product.get("price", 0)
