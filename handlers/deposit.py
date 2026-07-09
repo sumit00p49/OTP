@@ -123,9 +123,10 @@ async def deposit_receive_amount(message: Message, state: FSMContext):
     await state.update_data(deposit_amount=amount)
     await state.set_state(DepositStates.waiting_screenshot)
 
-    # Generate UPI QR with amount pre-filled
-    upi_link = f"upi://pay?pa={UPI_ID}&pn={UPI_NAME.replace(' ', '%20')}&am={amount:.2f}&cu=INR"
-    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_link}"
+    # Generate UPI QR with amount pre-filled (properly URL encoded)
+    from urllib.parse import quote
+    upi_link = f"upi://pay?pa={quote(UPI_ID)}&pn={quote(UPI_NAME)}&am={amount:.2f}&cu=INR"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={quote(upi_link)}"
 
     # Send QR photo with deposit details as caption
     await message.answer_photo(
