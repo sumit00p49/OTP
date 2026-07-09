@@ -257,6 +257,7 @@ async def admin_products(callback: CallbackQuery, state: FSMContext):
     if products:
         b.row(InlineKeyboardButton(text="🗑️ Remove Country", callback_data="prod_remove"))
         b.row(InlineKeyboardButton(text="💵 Change Price", callback_data="prod_price"))
+        b.row(InlineKeyboardButton(text="🔧 Edit Filters", callback_data="prod_filters"))
     b.row(InlineKeyboardButton(text="⬅️ Back to Admin", callback_data="admin_panel"))
     await callback.message.edit_text(msg, reply_markup=b.as_markup(), parse_mode="HTML")
     await callback.answer()
