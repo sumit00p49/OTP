@@ -64,8 +64,8 @@ ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
 ADMIN_GROUP_ID = int(os.getenv("ADMIN_GROUP_ID", "0"))
 
 # ==================== UPI Payment Details ====================
-UPI_ID = os.getenv("UPI_ID", "KaizenSeller@ybl")
-UPI_NAME = os.getenv("UPI_NAME", "BHARAT LAL GUPTA")
+UPI_ID = os.getenv("UPI_ID", "SurojSeller@fam")
+UPI_NAME = os.getenv("UPI_NAME", "SANDIP BERA")
 UPI_QR_URL = os.getenv("UPI_QR_URL", "")
 
 # ==================== Deposit ====================
