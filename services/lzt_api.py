@@ -115,10 +115,15 @@ class LZTMarketAPI:
         except Exception:
             return None
 
-    async def search_accounts(self, country: str = "IN", pmax: float = None) -> list:
+    async def search_accounts(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> list:
         """
-        Search cheapest India Telegram accounts.
-        Returns list of item dicts (may be empty).
+        Search Telegram accounts with per-country filters.
+
+        Args:
+            country: 2-letter country code
+            pmax: Max price in USD
+            extra_filters: Additional LZT search params from config
+                e.g. {"origin[]": "resale", "telegram_password": 0, "nsb": 1}
         """
         params = {
             "country[]": country,
@@ -127,9 +132,12 @@ class LZTMarketAPI:
         if pmax is not None:
             params["pmax"] = pmax
 
+        # Apply per-country filters from PRODUCTS config
+        if extra_filters and isinstance(extra_filters, dict):
+            params.update(extra_filters)
+
         result = await self._request("GET", "/telegram", params=params)
         items = result.get("items", [])
-        # items can be dict (keyed by id) or list
         if isinstance(items, dict):
             items = list(items.values())
         return items if isinstance(items, list) else []

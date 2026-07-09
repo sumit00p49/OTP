@@ -41,11 +41,12 @@ def format_quantity_select(price_per: float) -> str:
     )
 
 
-def format_buy_confirm(qty: int, price_per: float, total: float, balance: float) -> str:
-    """Purchase confirmation with quantity & total."""
+def format_buy_confirm(qty: int, price_per: float, total: float, balance: float, country_label: str = "🇮🇳 India") -> str:
+    """Purchase confirmation with quantity, total, and country."""
     return (
         "🛒 <b>Confirm Purchase</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🌍 <b>Country:</b> {country_label}\n"
         f"📦 <b>Quantity:</b> {qty} account{'s' if qty > 1 else ''}\n"
         f"💵 <b>Price:</b> {qty} × ₹{price_per:.0f} = <b>₹{total:.0f}</b>\n"
         f"💳 <b>Balance:</b> ₹{balance:.2f}\n\n"

@@ -5,6 +5,7 @@ Simplified: India-only TG Premium accounts at fixed ₹60.
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from config import PRODUCTS
 
 
 # ==================== Main Menu ====================
@@ -33,15 +34,20 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
 
 # ==================== Buy / Country Selection ====================
 
-def buy_country_keyboard(price: float) -> InlineKeyboardMarkup:
-    """Show available country with price as inline button."""
+def buy_country_keyboard() -> InlineKeyboardMarkup:
+    """Dynamically generate country buttons from PRODUCTS config."""
     builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(
-            text=f"🇮🇳 INDIAN  —  {price:.0f} Rs",
-            callback_data="select_india",
+    for product in PRODUCTS:
+        flag = product.get("flag", "🌍")
+        name = product.get("name", product["code"])
+        price = product.get("price", 0)
+        code = product["code"]
+        builder.row(
+            InlineKeyboardButton(
+                text=f"{flag} {name.upper()}  —  {price:.0f} Rs",
+                callback_data=f"select_country:{code}",
+            )
         )
-    )
     builder.row(
         InlineKeyboardButton(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data="back_main")
     )
@@ -71,13 +77,13 @@ def quantity_select_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def buy_confirm_keyboard(qty: int, total: float) -> InlineKeyboardMarkup:
-    """Confirm purchase with quantity & total."""
+def buy_confirm_keyboard(qty: int, total: float, country_code: str = "IN") -> InlineKeyboardMarkup:
+    """Confirm purchase with quantity, total, and country."""
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(
             text=f"✅ Pay ₹{total:.0f} for {qty} acc",
-            callback_data=f"confirm_buy:{qty}",
+            callback_data=f"confirm_buy:{qty}:{country_code}",
         )
     )
     builder.row(
