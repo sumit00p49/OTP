@@ -35,7 +35,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
 # ==================== Buy / Country Selection ====================
 
 def buy_country_keyboard() -> InlineKeyboardMarkup:
-    """Dynamically generate country buttons from products.json."""
+    """Dynamically generate country buttons with full name + price."""
     builder = InlineKeyboardBuilder()
     for product in get_all_products():
         flag = product.get("flag", "🌍")
@@ -44,7 +44,7 @@ def buy_country_keyboard() -> InlineKeyboardMarkup:
         code = product["code"]
         builder.row(
             InlineKeyboardButton(
-                text=f"{flag} {name.upper()}  —  {price:.0f} Rs",
+                text=f"{flag} {name}  —  ₹{price:.0f}",
                 callback_data=f"select_country:{code}",
             )
         )
