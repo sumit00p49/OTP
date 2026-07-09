@@ -182,6 +182,7 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
                 extra_filters=filters,
             )
             if not items:
+                logger.warning("No stock for %s (max=$%.2f, filters=%s)", country_code, max_lzt, filters)
                 failed_count += 1
                 continue
 

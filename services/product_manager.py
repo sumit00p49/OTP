@@ -22,9 +22,7 @@ DEFAULT_PRODUCTS = [
         "price": 70,
         "max_lzt": 0.15,
         "filters": {
-            "origin[]": "resale",
-            "telegram_password": 0,
-            "nsb": 1,  # No spam block = OTP works!
+            "origin[]": "resale"
         }
     }
 ]
@@ -69,9 +67,9 @@ def add_product(code: str, name: str, flag: str, price: float, max_lzt: float, f
         if p["code"].upper() == code.upper():
             return False
 
-    # Always add nsb=1 for OTP support
-    if "nsb" not in filters:
-        filters["nsb"] = 1
+    # Add nsb=1 only if user explicitly wants OTP-only accounts
+    # NOTE: nsb=1 is very restrictive at low prices, most cheap accounts have spamblock
+    # So we DON'T force it by default anymore
 
     products.append({
         "code": code.upper(),
@@ -111,9 +109,6 @@ def update_product_filters(code: str, filters: dict) -> bool:
     products = _load_products()
     for p in products:
         if p["code"].upper() == code.upper():
-            # Always keep nsb=1 for OTP
-            if "nsb" not in filters:
-                filters["nsb"] = 1
             p["filters"] = filters
             _save_products(products)
             return True
@@ -123,3 +118,17 @@ def update_product_filters(code: str, filters: dict) -> bool:
 # Initialize products file if not exists
 if not os.path.exists(PRODUCTS_FILE):
     _save_products(DEFAULT_PRODUCTS)
+else:
+    # Migration: remove nsb=1 from existing products (was too restrictive)
+    products = _load_products()
+    changed = False
+    for p in products:
+        if "nsb" in p.get("filters", {}):
+            del p["filters"]["nsb"]
+            changed = True
+        if "telegram_password" in p.get("filters", {}):
+            del p["filters"]["telegram_password"]
+            changed = True
+    if changed:
+        _save_products(products)
+        logger.info("Migrated products.json: removed nsb/telegram_password filters")
