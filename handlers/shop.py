@@ -176,8 +176,10 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
     price_per = product["price"]
     total = price_per * qty
     user_id = callback.from_user.id
-    max_lzt = product.get("max_lzt", 0.15)
+    max_lzt = product.get("max_lzt", 1.00)  # Default $1 if not set
     filters = product.get("filters", {})
+    
+    logger.info("Buy %s: qty=%d, max_lzt=$%.2f, filters=%s", country_code, qty, max_lzt, filters)
 
     # Double-check balance
     balance = await get_balance(user_id)

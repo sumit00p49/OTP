@@ -20,6 +20,7 @@ from services.wallet import credit, get_balance
 from services.product_manager import (
     get_all_products, get_product, add_product,
     remove_product, update_product_price, update_product_filters,
+    update_product_max_lzt,
 )
 from utils.formatters import format_deposit_approved, format_deposit_rejected
 from database import get_db
@@ -262,6 +263,7 @@ async def admin_products(callback: CallbackQuery, state: FSMContext):
         b.row(InlineKeyboardButton(text="🗑️ Remove Country", callback_data="prod_remove"))
         b.row(InlineKeyboardButton(text="💵 Change Price", callback_data="prod_price"))
         b.row(InlineKeyboardButton(text="🔧 Edit Filters", callback_data="prod_filters"))
+        b.row(InlineKeyboardButton(text="💲 Max LZT Price", callback_data="prod_maxlzt"))
     b.row(InlineKeyboardButton(text="⬅️ Back to Admin", callback_data="admin_panel"))
     await callback.message.edit_text(msg, reply_markup=b.as_markup(), parse_mode="HTML")
     await callback.answer()
@@ -386,11 +388,19 @@ async def prod_sp(callback: CallbackQuery, state: FSMContext):
 @router.message(AdminStates.waiting_price_update)
 async def prod_price_set(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS: return
-    try: price = float(message.text.strip().replace("₹",""))
-    except: return await message.answer("⚠️ Invalid")
+    try: price = float(message.text.strip().replace("₹","").replace("$",""))
+    except: return await message.answer("⚠️ Invalid number")
     data = await state.get_data()
-    update_product_price(data["price_code"], price)
-    await state.clear()
+    if data.get("is_maxlzt"):
+        code = data.get("maxlzt_code", "")
+        update_product_max_lzt(code, price)
+        await state.clear()
+        await message.answer(f"✅ {code} max LZT → ${price:.2f}", reply_markup=admin_back_keyboard(), parse_mode="HTML")
+    else:
+        code = data.get("price_code", "")
+        update_product_price(code, price)
+        await state.clear()
+        await message.answer(f"✅ {code} → ₹{price:.0f}", reply_markup=admin_back_keyboard(), parse_mode="HTML")
     await message.answer(f"✅ {data['price_code']} → ₹{price:.0f}", reply_markup=admin_back_keyboard(), parse_mode="HTML")
 
 
@@ -573,6 +583,7 @@ async def products_menu(callback: CallbackQuery, state: FSMContext):
         b.row(InlineKeyboardButton(text="🗑️ Remove", callback_data="prod_remove"))
         b.row(InlineKeyboardButton(text="💵 Change Price", callback_data="prod_price"))
         b.row(InlineKeyboardButton(text="🔧 Edit Filters", callback_data="prod_filters"))
+        b.row(InlineKeyboardButton(text="💲 Max LZT Price", callback_data="prod_maxlzt"))
     b.row(InlineKeyboardButton(text="⬅️ Back", callback_data="admin_panel"))
     await callback.message.edit_text(msg, reply_markup=b.as_markup(), parse_mode="HTML")
     await callback.answer()
@@ -682,18 +693,6 @@ async def prod_sp(callback: CallbackQuery, state: FSMContext):
     await state.set_state(AdminStates.waiting_price_update)
     await callback.message.edit_text(f"{p['flag']} {p['name']} — ₹{p['price']:.0f}\n\nNew price:", reply_markup=admin_back_keyboard(), parse_mode="HTML")
     await callback.answer()
-
-@router.message(AdminStates.waiting_price_update)
-async def price_set(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return
-    try: p = float(message.text.strip().replace("₹",""))
-    except: return await message.answer("⚠️ Invalid")
-    data = await state.get_data()
-    update_product_price(data["price_code"], p)
-    await state.clear()
-    await message.answer(f"✅ {data['price_code']} → ₹{p:.0f}", reply_markup=admin_back_keyboard(), parse_mode="HTML")
-
-
 
 # ==================== Deposit Approve/Reject ====================
 @router.callback_query(F.data.startswith("admin_approve:"))
@@ -994,4 +993,33 @@ async def admin_users_dashboard(callback: CallbackQuery):
     b = InlineKeyboardBuilder()
     b.row(InlineKeyboardButton(text="⬅️ Back to Admin", callback_data="admin_panel"))
     await callback.message.edit_text(msg, reply_markup=b.as_markup(), parse_mode="HTML")
+    await callback.answer()
+
+
+
+# ---- Change Max LZT Price ----
+@router.callback_query(F.data == "prod_maxlzt")
+async def prod_maxlzt_menu(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS: return
+    b = InlineKeyboardBuilder()
+    for p in get_all_products():
+        b.row(InlineKeyboardButton(text=f"💲 {p['flag']} {p['name']} — max ${p.get('max_lzt',0.15):.2f}", callback_data=f"prod_sml:{p['code']}"))
+    b.row(InlineKeyboardButton(text="⬅️ Back", callback_data="admin_products"))
+    await callback.message.edit_text("💲 <b>Change Max LZT Price (USD)</b>\n\nThis is the MAX you'll pay on LZT per account.\nSelect country:", reply_markup=b.as_markup(), parse_mode="HTML")
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("prod_sml:"))
+async def prod_sml(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS: return
+    code = callback.data.split(":")[1]
+    p = get_product(code)
+    await state.update_data(maxlzt_code=code)
+    await state.set_state(AdminStates.waiting_price_update)
+    await state.update_data(is_maxlzt=True)
+    await callback.message.edit_text(
+        f"💲 {p['flag']} {p['name']}\nCurrent max: <b>${p.get('max_lzt',0.15):.2f}</b>\n\n"
+        "Send new max USD price:\n"
+        "📌 Example: <code>0.30</code> or <code>0.50</code>\n\n"
+        "⚠️ Bot won't buy accounts above this price.",
+        reply_markup=admin_back_keyboard(), parse_mode="HTML")
     await callback.answer()

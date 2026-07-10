@@ -130,3 +130,15 @@ else:
     if changed:
         _save_products(products)
         logger.info("Migration: removed telegram_password filter from products")
+
+
+
+def update_product_max_lzt(code: str, max_lzt: float) -> bool:
+    """Update max LZT price (USD) for a product."""
+    products = _load_products()
+    for p in products:
+        if p["code"].upper() == code.upper():
+            p["max_lzt"] = max_lzt
+            _save_products(products)
+            return True
+    return False

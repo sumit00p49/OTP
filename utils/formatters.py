@@ -173,7 +173,7 @@ def format_out_of_stock() -> str:
     return (
         "❌ <b>Out of Stock</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "No India accounts available right now.\n\n"
+        "No accounts available for this country right now.\n\n"
         "💡 Check back in 5-10 minutes.\n"
         "✅ No money was deducted from your wallet."
     )
