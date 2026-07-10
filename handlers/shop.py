@@ -38,25 +38,53 @@ from services.order_service import create_order
 logger = logging.getLogger(__name__)
 router = Router()
 
+# ==================== Stock Cache (avoids slow API call on every click) ====================
+import asyncio
+import time
 
-@router.callback_query(F.data == "buy_account")
-async def buy_account_start(callback: CallbackQuery, state: FSMContext):
-    """Show country/product selection with live stock counts (parallel fetch)."""
-    await state.clear()
+_stock_cache = {}  # {country_code: count}
+_cache_time = 0    # last update timestamp
+CACHE_TTL = 60     # refresh every 60 seconds
 
-    # Fetch live stock count for ALL countries in PARALLEL (fast!)
-    import asyncio
+
+async def _refresh_stock_cache():
+    """Background refresh of stock counts."""
+    global _stock_cache, _cache_time
     products = get_all_products()
 
-    async def _get_count(p):
-        return await lzt_api.get_stock_count(
+    async def _get(p):
+        return p["code"], await lzt_api.get_stock_count(
             country=p["code"],
-            pmax=p.get("max_lzt"),
             extra_filters=p.get("filters", {}),
         )
 
-    counts = await asyncio.gather(*[_get_count(p) for p in products])
-    stock_counts = {p["code"]: c for p, c in zip(products, counts)}
+    try:
+        results = await asyncio.gather(*[_get(p) for p in products], return_exceptions=True)
+        new_cache = {}
+        for r in results:
+            if isinstance(r, tuple):
+                new_cache[r[0]] = r[1]
+        _stock_cache = new_cache
+        _cache_time = time.time()
+    except Exception:
+        pass
+
+
+async def get_cached_stock() -> dict:
+    """Get stock counts from cache (refresh if stale)."""
+    global _cache_time
+    if time.time() - _cache_time > CACHE_TTL:
+        await _refresh_stock_cache()
+    return _stock_cache
+
+
+@router.callback_query(F.data == "buy_account")
+async def buy_account_start(callback: CallbackQuery, state: FSMContext):
+    """Show country/product selection with CACHED stock counts (INSTANT!)."""
+    await state.clear()
+
+    products = get_all_products()
+    stock_counts = await get_cached_stock()
 
     # Build keyboard with stock counts
     from aiogram.utils.keyboard import InlineKeyboardBuilder
