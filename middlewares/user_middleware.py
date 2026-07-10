@@ -33,7 +33,7 @@ class UserRegistrationMiddleware(BaseMiddleware):
         """Create user in database if not exists."""
         db = await get_db()
         cursor = await db.execute(
-            "SELECT user_id FROM users WHERE user_id = ?", (user.id,)
+            "SELECT user_id, is_banned FROM users WHERE user_id = ?", (user.id,)
         )
         existing = await cursor.fetchone()
 
@@ -42,5 +42,12 @@ class UserRegistrationMiddleware(BaseMiddleware):
                 """INSERT INTO users (user_id, username, first_name)
                    VALUES (?, ?, ?)""",
                 (user.id, user.username or "", user.first_name or "User"),
+            )
+            await db.commit()
+        else:
+            # Update username/first_name if changed
+            await db.execute(
+                "UPDATE users SET username = ?, first_name = ? WHERE user_id = ?",
+                (user.username or "", user.first_name or "User", user.id),
             )
             await db.commit()

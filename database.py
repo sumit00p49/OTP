@@ -30,6 +30,9 @@ async def init_db():
             username TEXT,
             first_name TEXT,
             wallet_balance REAL DEFAULT 0.00,
+            referred_by INTEGER DEFAULT 0,
+            referral_count INTEGER DEFAULT 0,
+            is_banned INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -61,6 +64,29 @@ async def init_db():
             FOREIGN KEY (user_id) REFERENCES users(user_id)
         )
     """)
+
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS referrals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            referrer_id INTEGER NOT NULL,
+            referred_id INTEGER NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Migration: add new columns if they don't exist (for existing databases)
+    try:
+        await db.execute("ALTER TABLE users ADD COLUMN referred_by INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE users ADD COLUMN referral_count INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0")
+    except Exception:
+        pass
 
     await db.commit()
 

@@ -81,3 +81,18 @@ def get_product(code: str) -> dict:
         if p["code"].upper() == code.upper():
             return p
     return PRODUCTS[0] if PRODUCTS else {}
+
+
+# ==================== Channel Force Join ====================
+# Channel username (without @) that users must join to use bot
+# Leave empty to disable force join
+FORCE_JOIN_CHANNEL = os.getenv("FORCE_JOIN_CHANNEL", "")
+
+# ==================== Daily Report ====================
+# Send daily report at this hour (24h format, server timezone)
+DAILY_REPORT_HOUR = int(os.getenv("DAILY_REPORT_HOUR", "23"))
+
+# ==================== Bulk Discount ====================
+# 5 accounts = ₹10 off total, 10 accounts = ₹20 off total
+BULK_DISCOUNT_5 = float(os.getenv("BULK_DISCOUNT_5", "10.0"))
+BULK_DISCOUNT_10 = float(os.getenv("BULK_DISCOUNT_10", "20.0"))

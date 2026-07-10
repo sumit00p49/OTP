@@ -1,20 +1,23 @@
 """
 Main entry point for the Telegram Shop Bot.
-Registers all routers, middleware, and handles startup/shutdown.
+Registers all routers, middleware, scheduler, and handles startup/shutdown.
 """
 
 import asyncio
 import logging
 import sys
+from datetime import datetime, time
 
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
-from config import BOT_TOKEN
+from config import BOT_TOKEN, DAILY_REPORT_HOUR
 from database import init_db, close_db
 from middlewares.user_middleware import UserRegistrationMiddleware
+from middlewares.force_join import ForceJoinMiddleware
 from services.lzt_api import lzt_api
+from services.daily_report import send_daily_report
 
 # Import routers
 from handlers.start import router as start_router
@@ -33,6 +36,27 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def daily_report_scheduler(bot: Bot):
+    """Background task: send daily report to admins."""
+    while True:
+        now = datetime.now()
+        # Calculate seconds until next report time
+        target = now.replace(hour=DAILY_REPORT_HOUR, minute=0, second=0)
+        if now >= target:
+            # Already past today's time, schedule for tomorrow
+            target = target.replace(day=now.day + 1)
+        wait_seconds = (target - now).total_seconds()
+        logger.info("Daily report scheduled in %.0f seconds", wait_seconds)
+        await asyncio.sleep(wait_seconds)
+        try:
+            await send_daily_report(bot)
+            logger.info("Daily report sent!")
+        except Exception as e:
+            logger.error("Daily report failed: %s", e)
+        # Wait a bit to avoid double-send
+        await asyncio.sleep(60)
+
+
 async def on_startup(bot: Bot):
     """Startup hook - initialize database and verify APIs."""
     logger.info("Starting bot...")
@@ -43,14 +67,17 @@ async def on_startup(bot: Bot):
     try:
         balance = await lzt_api.get_seller_balance()
         if balance is not None:
-            logger.info(f"LZT API connected. Seller balance: {balance}")
+            logger.info(f"LZT API connected. Seller balance: ${balance}")
         else:
-            logger.warning("LZT API reachable but balance unavailable. Check LZT_API_KEY.")
+            logger.warning("LZT API: balance unavailable. Check key.")
     except Exception as e:
-        logger.warning(f"LZT API check failed (bot will still run): {e}")
+        logger.warning(f"LZT API check failed: {e}")
 
     me = await bot.get_me()
     logger.info(f"Bot started: @{me.username}")
+
+    # Start daily report scheduler
+    asyncio.create_task(daily_report_scheduler(bot))
 
 
 async def on_shutdown(bot: Bot):
@@ -62,30 +89,25 @@ async def on_shutdown(bot: Bot):
 
 
 async def main():
-    """Main function - create bot, register handlers, start polling."""
-    # Validate token
+    """Main function."""
     if not BOT_TOKEN or BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
-        logger.error("BOT_TOKEN not set! Edit .env file.")
+        logger.error("BOT_TOKEN not set!")
         sys.exit(1)
 
-    # Create bot with HTML parse mode
-    bot = Bot(
-        token=BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
-
-    # Create dispatcher
+    bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
 
-    # Register middleware
+    # Register middleware (order: force join first, then user registration)
+    dp.message.middleware(ForceJoinMiddleware())
+    dp.callback_query.middleware(ForceJoinMiddleware())
     dp.message.middleware(UserRegistrationMiddleware())
     dp.callback_query.middleware(UserRegistrationMiddleware())
 
-    # Register startup/shutdown hooks
+    # Startup/shutdown hooks
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
-    # Register routers (order matters for handler priority)
+    # Register routers
     dp.include_router(start_router)
     dp.include_router(deposit_router)
     dp.include_router(admin_router)
@@ -94,7 +116,6 @@ async def main():
     dp.include_router(balance_router)
     dp.include_router(support_router)
 
-    # Start polling
     logger.info("Bot is running! Press Ctrl+C to stop.")
     await dp.start_polling(bot)
 

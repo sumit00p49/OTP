@@ -880,3 +880,23 @@ async def filter_clear(callback: CallbackQuery):
     b.row(InlineKeyboardButton(text="🗑️ Clear All", callback_data=f"fclear:{code}"))
     b.row(InlineKeyboardButton(text="⬅️ Back", callback_data="admin_products"))
     await callback.message.edit_text(msg, reply_markup=b.as_markup(), parse_mode="HTML")
+
+
+
+# ==================== BAN / UNBAN ====================
+
+@router.callback_query(F.data == "admin_ban")
+async def admin_ban_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS: return
+    await state.set_state(AdminStates.waiting_user_lookup)  # reuse state
+    await state.update_data(ban_action="ban")
+    await callback.message.edit_text("🚫 <b>Ban User</b>\n\nSend User ID:", reply_markup=admin_back_keyboard(), parse_mode="HTML")
+    await callback.answer()
+
+@router.callback_query(F.data == "admin_unban")
+async def admin_unban_start(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS: return
+    await state.set_state(AdminStates.waiting_user_lookup)
+    await state.update_data(ban_action="unban")
+    await callback.message.edit_text("✅ <b>Unban User</b>\n\nSend User ID:", reply_markup=admin_back_keyboard(), parse_mode="HTML")
+    await callback.answer()

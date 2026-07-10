@@ -24,7 +24,8 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="💳 𝙒𝙖𝙡𝙡𝙚𝙩", callback_data="check_balance"),
     )
     builder.row(
-        InlineKeyboardButton(text="📋 𝖮𝗋𝖽𝖾𝗋 𝖧𝗂𝗌𝗍𝗈𝗋𝗒", callback_data="my_orders")
+        InlineKeyboardButton(text="📋 𝖮𝗋𝖽𝖾𝗋 𝖧𝗂𝗌𝗍𝗈𝗋𝗒", callback_data="my_orders"),
+        InlineKeyboardButton(text="🎟️ Referral", callback_data="my_referral"),
     )
     builder.row(
         InlineKeyboardButton(text="🆘 𝐒𝐮𝐩𝐩𝐨𝐫𝐭", callback_data="support")
