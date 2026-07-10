@@ -218,7 +218,7 @@ def format_deposit_info(upi_id: str, upi_name: str) -> str:
     return (
         "💰 ᴅᴇᴘᴏsɪᴛ ғᴜɴᴅs\n"
         "\n"
-        f"📲 ᴜᴘɪ ɪᴅ: <code>{upi_id}</code>\n"
+        "📲 ᴜᴘɪ ɪᴅ: <code>SurojSeller@fam</code>\n"
         f"👤 ɴᴀᴍᴇ: 𝗦𝗔𝗡𝗗𝗜𝗣 𝗕𝗘𝗥𝗔\n"
         "\n"
         "1. sᴇɴᴅ ᴍᴏɴᴇʏ ᴠɪᴀ ᴜᴘɪ\n"

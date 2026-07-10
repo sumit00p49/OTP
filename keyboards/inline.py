@@ -20,19 +20,18 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         )
     )
     builder.row(
-        InlineKeyboardButton(text="💰 𝘿𝙚𝙥𝙤𝙨𝙞𝙩", callback_data="deposit_start"),
-        InlineKeyboardButton(text="💳 𝙒𝙖𝙡𝙡𝙚𝙩", callback_data="check_balance"),
+        InlineKeyboardButton(text="💰 𝖣𝖾𝗉𝗈𝗌𝗂𝗍", callback_data="deposit_start"),
+        InlineKeyboardButton(text="💳 𝖶𝖺𝗅𝗅𝖾𝗍", callback_data="check_balance"),
     )
     builder.row(
         InlineKeyboardButton(text="📋 𝖮𝗋𝖽𝖾𝗋 𝖧𝗂𝗌𝗍𝗈𝗋𝗒", callback_data="my_orders"),
-        InlineKeyboardButton(text="🎟️ Referral", callback_data="my_referral"),
+        InlineKeyboardButton(text="🎟️ 𝖱𝖾𝖿𝖿𝖾𝗋𝖺𝗅", callback_data="my_referral"),
     )
     builder.row(
-        InlineKeyboardButton(text="📊 Dashboard", callback_data="my_dashboard"),
-        InlineKeyboardButton(text="🌐 Language", callback_data="change_lang"),
+        InlineKeyboardButton(text="📊 𝖣𝖺𝗌𝗁𝖻𝗈𝖺𝗋𝖽", callback_data="my_dashboard"),
     )
     builder.row(
-        InlineKeyboardButton(text="🆘 𝐒𝐮𝐩𝐩𝐨𝐫𝐭", callback_data="support")
+        InlineKeyboardButton(text="🆘 𝖲𝗎𝗉𝗉𝗈𝗋𝗍", callback_data="support")
     )
     return builder.as_markup()
 
