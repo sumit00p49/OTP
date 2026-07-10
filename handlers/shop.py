@@ -41,19 +41,22 @@ router = Router()
 
 @router.callback_query(F.data == "buy_account")
 async def buy_account_start(callback: CallbackQuery, state: FSMContext):
-    """Show country/product selection with live stock counts."""
+    """Show country/product selection with live stock counts (parallel fetch)."""
     await state.clear()
 
-    # Fetch live stock count for each country
+    # Fetch live stock count for ALL countries in PARALLEL (fast!)
+    import asyncio
     products = get_all_products()
-    stock_counts = {}
-    for p in products:
-        count = await lzt_api.get_stock_count(
+
+    async def _get_count(p):
+        return await lzt_api.get_stock_count(
             country=p["code"],
             pmax=p.get("max_lzt"),
             extra_filters=p.get("filters", {}),
         )
-        stock_counts[p["code"]] = count
+
+    counts = await asyncio.gather(*[_get_count(p) for p in products])
+    stock_counts = {p["code"]: c for p, c in zip(products, counts)}
 
     # Build keyboard with stock counts
     from aiogram.utils.keyboard import InlineKeyboardBuilder

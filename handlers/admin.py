@@ -42,6 +42,7 @@ class AdminStates(StatesGroup):
     waiting_product_max_lzt = State()
     waiting_product_origin = State()
     waiting_price_update = State()
+    waiting_ban_user = State()
 
 
 
@@ -53,6 +54,8 @@ def admin_panel_keyboard():
     b.row(InlineKeyboardButton(text="💰 Today Revenue", callback_data="admin_revenue"))
     b.row(InlineKeyboardButton(text="📊 Stats", callback_data="admin_stats"),
           InlineKeyboardButton(text="🔍 User Lookup", callback_data="admin_user_lookup"))
+    b.row(InlineKeyboardButton(text="🚫 Ban User", callback_data="admin_ban"),
+          InlineKeyboardButton(text="✅ Unban User", callback_data="admin_unban"))
     b.row(InlineKeyboardButton(text="🛒 Product Manager", callback_data="admin_products"))
     b.row(InlineKeyboardButton(text="👥 Users Dashboard", callback_data="admin_users_dashboard"))
     b.row(InlineKeyboardButton(text="📢 Broadcast", callback_data="admin_broadcast"))
@@ -889,7 +892,7 @@ async def filter_clear(callback: CallbackQuery):
 @router.callback_query(F.data == "admin_ban")
 async def admin_ban_start(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id not in ADMIN_IDS: return
-    await state.set_state(AdminStates.waiting_user_lookup)  # reuse state
+    await state.set_state(AdminStates.waiting_ban_user)
     await state.update_data(ban_action="ban")
     await callback.message.edit_text("🚫 <b>Ban User</b>\n\nSend User ID:", reply_markup=admin_back_keyboard(), parse_mode="HTML")
     await callback.answer()
@@ -897,10 +900,40 @@ async def admin_ban_start(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "admin_unban")
 async def admin_unban_start(callback: CallbackQuery, state: FSMContext):
     if callback.from_user.id not in ADMIN_IDS: return
-    await state.set_state(AdminStates.waiting_user_lookup)
+    await state.set_state(AdminStates.waiting_ban_user)
     await state.update_data(ban_action="unban")
     await callback.message.edit_text("✅ <b>Unban User</b>\n\nSend User ID:", reply_markup=admin_back_keyboard(), parse_mode="HTML")
     await callback.answer()
+
+
+@router.message(AdminStates.waiting_ban_user)
+async def ban_user_handler(message: Message, state: FSMContext):
+    """Process ban/unban."""
+    if message.from_user.id not in ADMIN_IDS: return
+    try:
+        uid = int(message.text.strip())
+    except (ValueError, TypeError):
+        return await message.answer("⚠️ Invalid User ID.")
+
+    data = await state.get_data()
+    action = data.get("ban_action", "ban")
+
+    db = await get_db()
+    cur = await db.execute("SELECT first_name FROM users WHERE user_id = ?", (uid,))
+    row = await cur.fetchone()
+    if not row:
+        return await message.answer("❌ User not found.")
+
+    if action == "ban":
+        await db.execute("UPDATE users SET is_banned = 1 WHERE user_id = ?", (uid,))
+        await db.commit()
+        await state.clear()
+        await message.answer(f"🚫 <b>Banned!</b> {row[0]} ({uid})", reply_markup=admin_back_keyboard(), parse_mode="HTML")
+    else:
+        await db.execute("UPDATE users SET is_banned = 0 WHERE user_id = ?", (uid,))
+        await db.commit()
+        await state.clear()
+        await message.answer(f"✅ <b>Unbanned!</b> {row[0]} ({uid})", reply_markup=admin_back_keyboard(), parse_mode="HTML")
 
 
 
