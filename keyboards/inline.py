@@ -28,9 +28,6 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🎟️ 𝖱𝖾𝖿𝖿𝖾𝗋𝖺𝗅", callback_data="my_referral"),
     )
     builder.row(
-        InlineKeyboardButton(text="📊 𝖣𝖺𝗌𝗁𝖻𝗈𝖺𝗋𝖽", callback_data="my_dashboard"),
-    )
-    builder.row(
         InlineKeyboardButton(text="🆘 𝖲𝗎𝗉𝗉𝗈𝗋𝗍", callback_data="support")
     )
     return builder.as_markup()

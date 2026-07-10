@@ -136,19 +136,10 @@ async def quantity_input(message: Message, state: FSMContext):
 
 
 async def _show_confirmation(message, user_id: int, qty: int, country_code: str):
-    """Show order confirmation with total amount + bulk discount."""
-    from config import BULK_DISCOUNT_5, BULK_DISCOUNT_10
+    """Show order confirmation with total amount."""
     product = get_product(country_code)
     price_per = product["price"]
     total = price_per * qty
-
-    # Apply bulk discount
-    discount = 0
-    if qty >= 10:
-        discount = BULK_DISCOUNT_10
-    elif qty >= 5:
-        discount = BULK_DISCOUNT_5
-    total = total - discount
 
     balance = await get_balance(user_id)
 
@@ -162,7 +153,7 @@ async def _show_confirmation(message, user_id: int, qty: int, country_code: str)
 
     name = product.get("name", country_code)
     flag = product.get("flag", "🌍")
-    text = format_buy_confirm(qty, price_per, total, balance, f"{flag} {name}", discount)
+    text = format_buy_confirm(qty, price_per, total, balance, f"{flag} {name}")
 
     await message.answer(
         text,

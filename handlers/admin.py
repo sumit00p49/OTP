@@ -54,6 +54,7 @@ def admin_panel_keyboard():
     b.row(InlineKeyboardButton(text="📊 Stats", callback_data="admin_stats"),
           InlineKeyboardButton(text="🔍 User Lookup", callback_data="admin_user_lookup"))
     b.row(InlineKeyboardButton(text="🛒 Product Manager", callback_data="admin_products"))
+    b.row(InlineKeyboardButton(text="👥 Users Dashboard", callback_data="admin_users_dashboard"))
     b.row(InlineKeyboardButton(text="📢 Broadcast", callback_data="admin_broadcast"))
     return b.as_markup()
 
@@ -899,4 +900,73 @@ async def admin_unban_start(callback: CallbackQuery, state: FSMContext):
     await state.set_state(AdminStates.waiting_user_lookup)
     await state.update_data(ban_action="unban")
     await callback.message.edit_text("✅ <b>Unban User</b>\n\nSend User ID:", reply_markup=admin_back_keyboard(), parse_mode="HTML")
+    await callback.answer()
+
+
+
+# ==================== USER DASHBOARD (Admin) ====================
+
+@router.callback_query(F.data == "admin_users_dashboard")
+async def admin_users_dashboard(callback: CallbackQuery):
+    """Show user statistics dashboard in admin panel."""
+    if callback.from_user.id not in ADMIN_IDS: return
+    db = await get_db()
+
+    # Total users
+    total = (await (await db.execute("SELECT COUNT(*) FROM users")).fetchone())[0]
+
+    # Active users (made order or deposit in last 7 days)
+    active = (await (await db.execute(
+        "SELECT COUNT(DISTINCT user_id) FROM ("
+        "SELECT user_id FROM orders WHERE created_at >= datetime('now','-7 days') "
+        "UNION SELECT user_id FROM deposits WHERE created_at >= datetime('now','-7 days'))"
+    )).fetchone())[0]
+
+    # Today new users
+    today = (await (await db.execute(
+        "SELECT COUNT(*) FROM users WHERE DATE(created_at) = DATE('now')"
+    )).fetchone())[0]
+
+    # This week new users
+    week = (await (await db.execute(
+        "SELECT COUNT(*) FROM users WHERE created_at >= datetime('now','-7 days')"
+    )).fetchone())[0]
+
+    # Banned users
+    banned = (await (await db.execute(
+        "SELECT COUNT(*) FROM users WHERE is_banned = 1"
+    )).fetchone())[0]
+
+    # Users with balance > 0
+    with_balance = (await (await db.execute(
+        "SELECT COUNT(*) FROM users WHERE wallet_balance > 0"
+    )).fetchone())[0]
+
+    # Top 5 buyers
+    cur = await db.execute(
+        "SELECT u.first_name, u.user_id, COUNT(o.id) as cnt, SUM(o.amount_paid) as spent "
+        "FROM orders o JOIN users u ON o.user_id = u.user_id "
+        "GROUP BY o.user_id ORDER BY cnt DESC LIMIT 5"
+    )
+    top_buyers = await cur.fetchall()
+
+    msg = (
+        "📊 <b>Users Dashboard</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"👥 <b>Total Users:</b> {total}\n"
+        f"🟢 <b>Active (7d):</b> {active}\n"
+        f"🆕 <b>Today:</b> {today}\n"
+        f"📅 <b>This Week:</b> {week}\n"
+        f"🚫 <b>Banned:</b> {banned}\n"
+        f"💰 <b>With Balance:</b> {with_balance}\n\n"
+    )
+
+    if top_buyers:
+        msg += "<b>🏆 Top Buyers:</b>\n"
+        for i, tb in enumerate(top_buyers, 1):
+            msg += f"  {i}. {tb[0]} — {tb[2]} orders (₹{tb[3]:.0f})\n"
+
+    b = InlineKeyboardBuilder()
+    b.row(InlineKeyboardButton(text="⬅️ Back to Admin", callback_data="admin_panel"))
+    await callback.message.edit_text(msg, reply_markup=b.as_markup(), parse_mode="HTML")
     await callback.answer()

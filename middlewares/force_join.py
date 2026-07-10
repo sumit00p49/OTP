@@ -2,13 +2,16 @@
 Force Join middleware - user must join a channel before using the bot.
 """
 
+import logging
 from typing import Callable, Dict, Any, Awaitable
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from config import FORCE_JOIN_CHANNEL, ADMIN_IDS
+
+logger = logging.getLogger(__name__)
 
 
 class ForceJoinMiddleware(BaseMiddleware):
@@ -38,26 +41,32 @@ class ForceJoinMiddleware(BaseMiddleware):
         if user.id in ADMIN_IDS:
             return await handler(event, data)
 
-        # Skip for "check_joined" callback (so user can verify)
+        # Skip for check_joined callback
         if isinstance(event, CallbackQuery) and event.data == "check_joined":
             return await handler(event, data)
 
         # Check membership
         try:
-            bot = data.get("bot") or event.bot
+            bot = data.get("bot")
+            if not bot:
+                bot = event.bot if hasattr(event, "bot") else None
+            if not bot:
+                return await handler(event, data)
+
             member = await bot.get_chat_member(
                 chat_id=f"@{FORCE_JOIN_CHANNEL}", user_id=user.id
             )
             if member.status in ("left", "kicked"):
-                await self._send_join_message(event, bot)
+                await self._send_join_message(event)
                 return  # Block handler
-        except Exception:
-            # If check fails (bot not admin in channel), allow through
+        except Exception as e:
+            # If check fails (bot not admin in channel), let through
+            logger.debug("Force join check failed: %s", e)
             return await handler(event, data)
 
         return await handler(event, data)
 
-    async def _send_join_message(self, event, bot):
+    async def _send_join_message(self, event):
         """Send 'please join' message."""
         b = InlineKeyboardBuilder()
         b.row(InlineKeyboardButton(
