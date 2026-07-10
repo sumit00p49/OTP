@@ -118,13 +118,10 @@ class LZTMarketAPI:
     async def search_accounts(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> list:
         """
         Search Telegram accounts with per-country filters.
-
-        Args:
-            country: 2-letter country code
-            pmax: Max price in USD
-            extra_filters: Additional LZT search params from config
-                e.g. {"origin[]": "resale", "telegram_password": 0, "nsb": 1}
         """
+        # Fix common country code mistakes
+        country = _fix_country_code(country)
+
         params = {
             "country[]": country,
             "order_by": "price_to_up",
@@ -143,10 +140,8 @@ class LZTMarketAPI:
         return items if isinstance(items, list) else []
 
     async def get_stock_count(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> int:
-        """
-        Get total available stock count for a country (with filters).
-        Returns the totalItems count from LZT search API.
-        """
+        """Get total available stock count for a country."""
+        country = _fix_country_code(country)
         params = {
             "country[]": country,
             "order_by": "price_to_up",
@@ -322,6 +317,18 @@ def _extract_phone_from_title(title: str) -> str:
         if 8 <= len(phone.replace("+", "")) <= 15:
             return phone
     return ""
+
+
+def _fix_country_code(code: str) -> str:
+    """Fix common country code mistakes. LZT uses ISO 3166-1 alpha-2."""
+    fixes = {
+        "UK": "GB",   # United Kingdom = GB (not UK!)
+        "EN": "GB",   # England = GB
+        "KO": "KR",   # Korea = KR
+        "JP": "JP",   # Japan (correct)
+    }
+    upper = code.upper().strip()
+    return fixes.get(upper, upper)
 
 
 # Singleton
