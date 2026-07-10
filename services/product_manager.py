@@ -118,3 +118,15 @@ def update_product_filters(code: str, filters: dict) -> bool:
 # Initialize products file if not exists
 if not os.path.exists(PRODUCTS_FILE):
     _save_products(DEFAULT_PRODUCTS)
+else:
+    # Migration: remove telegram_password filter (too restrictive for most countries)
+    products = _load_products()
+    changed = False
+    for p in products:
+        filters = p.get("filters", {})
+        if "telegram_password" in filters:
+            del filters["telegram_password"]
+            changed = True
+    if changed:
+        _save_products(products)
+        logger.info("Migration: removed telegram_password filter from products")
