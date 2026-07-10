@@ -20,9 +20,11 @@ DEFAULT_PRODUCTS = [
         "name": "India",
         "flag": "🇮🇳",
         "price": 70,
-        "max_lzt": 0.15,
+        "max_lzt": 0.60,
         "filters": {
-            "origin[]": "resale"
+            "origin[]": "autoreg",
+            "nsb": 1,
+            "telegram_password": 0,
         }
     }
 ]
@@ -119,17 +121,22 @@ def update_product_filters(code: str, filters: dict) -> bool:
 if not os.path.exists(PRODUCTS_FILE):
     _save_products(DEFAULT_PRODUCTS)
 else:
-    # Migration: remove telegram_password filter (too restrictive for most countries)
+    # Migration: set correct filters for ALL products
+    # Autoreg + No Spamblock + No Password = best quality accounts
     products = _load_products()
     changed = False
+    correct_filters = {
+        "origin[]": "autoreg",
+        "nsb": 1,
+        "telegram_password": 0,
+    }
     for p in products:
-        filters = p.get("filters", {})
-        if "telegram_password" in filters:
-            del filters["telegram_password"]
+        if p.get("filters") != correct_filters:
+            p["filters"] = correct_filters.copy()
             changed = True
     if changed:
         _save_products(products)
-        logger.info("Migration: removed telegram_password filter from products")
+        logger.info("Migration: set all products to autoreg+nsb+no_password filters")
 
 
 

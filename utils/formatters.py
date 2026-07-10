@@ -151,7 +151,7 @@ def format_account_details(order_id: str, account_data: dict, price: float) -> s
         msg += (
             "\n\n"
             "⚠️ <i>Note: This account may require TData login.\n"
-            "If OTP doesn't work, use TData from your LZT panel.</i>"
+            "If OTP doesn't work, contact support.</i>"
         )
 
     return msg
@@ -346,7 +346,7 @@ def format_order_detail(order: dict) -> str:
     if login_code:
         msg += f"📲 Login Code: <code>{login_code}</code>\n"
     if has_tdata and item_id:
-        msg += f"💾 TData: <code>https://lzt.market/{item_id}/</code>\n"
+        msg += f"💾 TData: Available (contact support)\n"
 
     msg += "\n━━━━━━━━━━━━━━━━━━━━━"
     return msg

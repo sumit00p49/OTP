@@ -223,16 +223,8 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
                 pmax=max_lzt,
                 extra_filters=filters,
             )
-            # Fallback: if no results with pmax, try WITHOUT price limit
-            if not items and max_lzt < 1.0:
-                logger.warning("No stock for %s at max=$%.2f, retrying without pmax...", country_code, max_lzt)
-                items = await lzt_api.search_accounts(
-                    country=country_code,
-                    pmax=None,
-                    extra_filters=filters,
-                )
             if not items:
-                logger.warning("No stock for %s (filters=%s)", country_code, filters)
+                logger.warning("No stock for %s (max=$%.2f, filters=%s)", country_code, max_lzt, filters)
                 failed_count += 1
                 continue
 
