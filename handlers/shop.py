@@ -179,7 +179,11 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
     max_lzt = product.get("max_lzt", 1.00)  # Default $1 if not set
     filters = product.get("filters", {})
     
-    logger.info("Buy %s: qty=%d, max_lzt=$%.2f, filters=%s", country_code, qty, max_lzt, filters)
+    # Fix country code (UK→GB etc)
+    from services.lzt_api import _fix_country_code
+    actual_country = _fix_country_code(country_code)
+    
+    logger.info("Buy %s (api=%s): qty=%d, max_lzt=$%.2f, filters=%s", country_code, actual_country, qty, max_lzt, filters)
 
     # Double-check balance
     balance = await get_balance(user_id)
@@ -219,8 +223,16 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
                 pmax=max_lzt,
                 extra_filters=filters,
             )
+            # Fallback: if no results with pmax, try WITHOUT price limit
+            if not items and max_lzt < 1.0:
+                logger.warning("No stock for %s at max=$%.2f, retrying without pmax...", country_code, max_lzt)
+                items = await lzt_api.search_accounts(
+                    country=country_code,
+                    pmax=None,
+                    extra_filters=filters,
+                )
             if not items:
-                logger.warning("No stock for %s (max=$%.2f, filters=%s)", country_code, max_lzt, filters)
+                logger.warning("No stock for %s (filters=%s)", country_code, filters)
                 failed_count += 1
                 continue
 
