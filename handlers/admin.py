@@ -401,7 +401,9 @@ def admin_panel_keyboard():
     b.row(InlineKeyboardButton(text="➕ Add Money", callback_data="admin_add_money"), InlineKeyboardButton(text="➖ Deduct Money", callback_data="admin_deduct_money"))
     b.row(InlineKeyboardButton(text="💰 Today Revenue", callback_data="admin_revenue"))
     b.row(InlineKeyboardButton(text="📊 Stats", callback_data="admin_stats"), InlineKeyboardButton(text="🔍 User Lookup", callback_data="admin_user_lookup"))
+    b.row(InlineKeyboardButton(text="🚫 Ban User", callback_data="admin_ban"), InlineKeyboardButton(text="✅ Unban", callback_data="admin_unban"))
     b.row(InlineKeyboardButton(text="🛒 Product Manager", callback_data="admin_products"))
+    b.row(InlineKeyboardButton(text="👥 Users Dashboard", callback_data="admin_users_dashboard"))
     b.row(InlineKeyboardButton(text="📢 Broadcast", callback_data="admin_broadcast"))
     return b.as_markup()
 
@@ -410,18 +412,8 @@ def admin_back_keyboard():
     b.row(InlineKeyboardButton(text="⬅️ Back to Admin", callback_data="admin_panel"))
     return b.as_markup()
 
-@router.message(Command("admin"))
-async def cmd_admin(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS: return await message.answer("⛔")
-    await state.clear()
-    await message.answer("🔐 <b>𝗔𝗗𝗠𝗜𝗡 𝗣𝗔𝗡𝗘𝗟</b>\n━━━━━━━━━━━━━━━━━━━━━", reply_markup=admin_panel_keyboard(), parse_mode="HTML")
 
-@router.callback_query(F.data == "admin_panel")
-async def panel_cb(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id not in ADMIN_IDS: return
-    await state.clear()
-    await callback.message.edit_text("🔐 <b>𝗔𝗗𝗠𝗜𝗡 𝗣𝗔𝗡𝗘𝗟</b>\n━━━━━━━━━━━━━━━━━━━━━", reply_markup=admin_panel_keyboard(), parse_mode="HTML")
-    await callback.answer()
+# (cmd_admin and panel_cb defined above at line 70-84)
 
 @router.callback_query(F.data == "admin_pending")
 async def pending(callback: CallbackQuery):
