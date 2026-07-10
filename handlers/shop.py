@@ -41,11 +41,43 @@ router = Router()
 
 @router.callback_query(F.data == "buy_account")
 async def buy_account_start(callback: CallbackQuery, state: FSMContext):
-    """Show country/product selection (dynamic from config)."""
+    """Show country/product selection with live stock counts."""
     await state.clear()
+
+    # Fetch live stock count for each country
+    products = get_all_products()
+    stock_counts = {}
+    for p in products:
+        count = await lzt_api.get_stock_count(
+            country=p["code"],
+            pmax=p.get("max_lzt"),
+            extra_filters=p.get("filters", {}),
+        )
+        stock_counts[p["code"]] = count
+
+    # Build keyboard with stock counts
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    from aiogram.types import InlineKeyboardButton
+    builder = InlineKeyboardBuilder()
+    for p in products:
+        flag = p.get("flag", "🌍")
+        name = p.get("name", p["code"])
+        price = p.get("price", 0)
+        code = p["code"]
+        stock = stock_counts.get(code, 0)
+        builder.row(
+            InlineKeyboardButton(
+                text=f"{flag} {name}  —  ₹{price:.0f}  ({stock} in stock)",
+                callback_data=f"select_country:{code}",
+            )
+        )
+    builder.row(
+        InlineKeyboardButton(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data="back_main")
+    )
+
     await callback.message.edit_text(
         format_buy_country_select(),
-        reply_markup=buy_country_keyboard(),
+        reply_markup=builder.as_markup(),
         parse_mode="HTML",
     )
     await callback.answer()

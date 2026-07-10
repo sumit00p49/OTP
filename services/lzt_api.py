@@ -142,6 +142,35 @@ class LZTMarketAPI:
             items = list(items.values())
         return items if isinstance(items, list) else []
 
+    async def get_stock_count(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> int:
+        """
+        Get total available stock count for a country (with filters).
+        Returns the totalItems count from LZT search API.
+        """
+        params = {
+            "country[]": country,
+            "order_by": "price_to_up",
+        }
+        if pmax is not None:
+            params["pmax"] = pmax
+        if extra_filters and isinstance(extra_filters, dict):
+            params.update(extra_filters)
+
+        try:
+            result = await self._request("GET", "/telegram", params=params)
+            # LZT returns totalItems in the response
+            total = result.get("totalItems", result.get("total_items", 0))
+            if not total:
+                # Fallback: count items in response
+                items = result.get("items", [])
+                if isinstance(items, dict):
+                    total = len(items)
+                elif isinstance(items, list):
+                    total = len(items)
+            return int(total)
+        except Exception:
+            return 0
+
     async def buy(self, item_id, price: float = None, currency: str = None) -> dict:
         """POST /{item_id}/fast-buy — atomic purchase with optional price guard."""
         data = {}
