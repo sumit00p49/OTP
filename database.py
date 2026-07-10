@@ -87,6 +87,14 @@ async def init_db():
         await db.execute("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0")
     except Exception:
         pass
+    try:
+        await db.execute("ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'en'")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE orders ADD COLUMN rating TEXT DEFAULT ''")
+    except Exception:
+        pass
 
     await db.commit()
 

@@ -28,6 +28,10 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🎟️ Referral", callback_data="my_referral"),
     )
     builder.row(
+        InlineKeyboardButton(text="📊 Dashboard", callback_data="my_dashboard"),
+        InlineKeyboardButton(text="🌐 Language", callback_data="change_lang"),
+    )
+    builder.row(
         InlineKeyboardButton(text="🆘 𝐒𝐮𝐩𝐩𝐨𝐫𝐭", callback_data="support")
     )
     return builder.as_markup()
@@ -100,6 +104,10 @@ def account_delivered_keyboard(order_id: str, item_id: str = "") -> InlineKeyboa
         builder.row(
             InlineKeyboardButton(text="🔑 Get OTP", callback_data=f"get_otp:{item_id}")
         )
+    builder.row(
+        InlineKeyboardButton(text="👍 Good", callback_data=f"rate:{order_id}:good"),
+        InlineKeyboardButton(text="👎 Bad", callback_data=f"rate:{order_id}:bad"),
+    )
     builder.row(
         InlineKeyboardButton(text="📱 Buy Another", callback_data="buy_account"),
         InlineKeyboardButton(text="🏠 Menu", callback_data="back_main"),
