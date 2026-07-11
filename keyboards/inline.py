@@ -11,24 +11,22 @@ from services.product_manager import get_all_products
 # ==================== Main Menu ====================
 
 def main_menu_keyboard() -> InlineKeyboardMarkup:
-    """Main menu inline keyboard."""
+    """Main menu inline keyboard with premium-look emojis."""
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(
-            text="📱 𝐁𝐮𝐲 𝐓𝐞𝐥𝐞𝐠𝐫𝐚𝐦 𝐀𝐜𝐜𝐨𝐮𝐧𝐭",
-            callback_data="buy_account",
-        )
+        InlineKeyboardButton(text="🛒 Buy Account", callback_data="buy_account"),
+        InlineKeyboardButton(text="🟢 Deposit Funds", callback_data="deposit_start"),
     )
     builder.row(
-        InlineKeyboardButton(text="💰 𝖣𝖾𝗉𝗈𝗌𝗂𝗍", callback_data="deposit_start"),
-        InlineKeyboardButton(text="💳 𝖶𝖺𝗅𝗅𝖾𝗍", callback_data="check_balance"),
+        InlineKeyboardButton(text="🔮 My Orders", callback_data="my_orders"),
+        InlineKeyboardButton(text="📦 Stock Info", callback_data="buy_account"),
     )
     builder.row(
-        InlineKeyboardButton(text="📋 𝖮𝗋𝖽𝖾𝗋 𝖧𝗂𝗌𝗍𝗈𝗋𝗒", callback_data="my_orders"),
-        InlineKeyboardButton(text="🎟️ 𝖱𝖾𝖿𝖿𝖾𝗋𝖺𝗅", callback_data="my_referral"),
+        InlineKeyboardButton(text="👛 My Profile", callback_data="check_balance"),
+        InlineKeyboardButton(text="🆘 Support", callback_data="support"),
     )
     builder.row(
-        InlineKeyboardButton(text="🆘 𝖲𝗎𝗉𝗉𝗈𝗋𝗍", callback_data="support")
+        InlineKeyboardButton(text="🎟️ Referral", callback_data="my_referral"),
     )
     return builder.as_markup()
 

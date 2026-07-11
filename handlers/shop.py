@@ -99,25 +99,24 @@ async def buy_account_start(callback: CallbackQuery, state: FSMContext):
     products = get_all_products()
     stock_counts = await get_cached_stock()
 
-    # Build keyboard like screenshot: 🇬🇧 +44 - gb - United Kingdom - ₹80 (52)
+    # Build keyboard like screenshot: 🏳️ INDIA | ₹30 ($0.08) | 6 left
     from aiogram.utils.keyboard import InlineKeyboardBuilder
     from aiogram.types import InlineKeyboardButton
     builder = InlineKeyboardBuilder()
     for p in products:
         flag = p.get("flag", "🌍")
-        name = p.get("name", p["code"])
+        name = p.get("name", p["code"]).upper()
         price = p.get("price", 0)
         code = p["code"]
-        phone_code = COUNTRY_PHONE_CODES.get(code.upper(), "")
         stock = stock_counts.get(code, 0)
         builder.row(
             InlineKeyboardButton(
-                text=f"{flag} {phone_code} - {code.lower()} - {name} - ₹{price:.0f} ({stock})",
+                text=f"{flag} {name} | ₹{price:.0f} | {stock} left",
                 callback_data=f"select_country:{code}",
             )
         )
     builder.row(
-        InlineKeyboardButton(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data="back_main")
+        InlineKeyboardButton(text="◀️ Back", callback_data="back_main")
     )
 
     await callback.message.edit_text(

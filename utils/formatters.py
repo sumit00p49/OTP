@@ -28,10 +28,12 @@ def format_welcome(first_name: str, balance: float) -> str:
 def format_buy_country_select() -> str:
     """Country/product selection screen."""
     return (
-        "🟢 Fresh Accounts\n"
+        "🟢 <b>Choose Quantity</b>\n"
+        "──────────────────────\n"
+        "📦 Category: 🟢 Fresh Accounts\n"
         "──────────────────────\n"
         "👇 Select a country:\n\n"
-        "<i>📊 Stock reloads every 30 min</i>"
+        "<i>📊 Stock refreshes every 30 min</i>"
     )
 
 
