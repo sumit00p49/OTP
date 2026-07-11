@@ -38,57 +38,28 @@ from services.order_service import create_order
 logger = logging.getLogger(__name__)
 router = Router()
 
-# ==================== Stock Cache (avoids slow API call on every click) ====================
+# ==================== Stock Fetch (LIVE - no cache, instant with pmax filter) ====================
 import asyncio
-import time
-
-_stock_cache = {}  # {country_code: count}
-_cache_time = 0    # last update timestamp
-CACHE_TTL = 600    # refresh every 10 minutes (600 seconds)
 
 
-async def _refresh_stock_cache():
-    """Background refresh of stock counts."""
-    global _stock_cache, _cache_time
-    products = get_all_products()
-
+async def get_live_stock(products: list) -> dict:
+    """Fetch stock counts LIVE from API (parallel, with max_lzt filter)."""
     async def _get(p):
         return p["code"], await lzt_api.get_stock_count(
             country=p["code"],
+            pmax=p.get("max_lzt"),
             extra_filters=p.get("filters", {}),
         )
 
     try:
         results = await asyncio.gather(*[_get(p) for p in products], return_exceptions=True)
-        new_cache = {}
+        stock = {}
         for r in results:
             if isinstance(r, tuple):
-                new_cache[r[0]] = r[1]
-        _stock_cache = new_cache
-        _cache_time = time.time()
+                stock[r[0]] = r[1]
+        return stock
     except Exception:
-        pass
-
-
-async def get_cached_stock() -> dict:
-    """Get stock counts from cache (refresh if stale)."""
-    global _cache_time
-    if time.time() - _cache_time > CACHE_TTL:
-        await _refresh_stock_cache()
-    return _stock_cache
-
-
-# Country phone codes for display
-COUNTRY_PHONE_CODES = {
-    "IN": "+91", "US": "+1", "GB": "+44", "UK": "+44", "CA": "+1",
-    "ID": "+62", "BD": "+880", "MM": "+95", "VN": "+84", "RU": "+7",
-    "BR": "+55", "PH": "+63", "PK": "+92", "TH": "+66", "TR": "+90",
-    "EG": "+20", "NG": "+234", "MX": "+52", "AU": "+61", "DE": "+49",
-    "FR": "+33", "IT": "+39", "ES": "+34", "NL": "+31", "PL": "+48",
-    "UA": "+380", "MY": "+60", "SG": "+65", "JP": "+81", "KR": "+82",
-    "GH": "+233", "SD": "+249", "SO": "+252", "TZ": "+255", "PT": "+351",
-    "IE": "+353", "GR": "+30", "SE": "+46", "NO": "+47", "FI": "+358",
-}
+        return {}
 
 
 @router.callback_query(F.data == "buy_account")
@@ -97,7 +68,7 @@ async def buy_account_start(callback: CallbackQuery, state: FSMContext):
     await state.clear()
 
     products = get_all_products()
-    stock_counts = await get_cached_stock()
+    stock_counts = await get_live_stock(products)
 
     # Build keyboard: 🇮🇳 India — ₹30 (884 in stock)
     from aiogram.utils.keyboard import InlineKeyboardBuilder
