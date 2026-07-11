@@ -231,8 +231,11 @@ def balance_keyboard() -> InlineKeyboardMarkup:
 # ==================== Support ====================
 
 def support_keyboard() -> InlineKeyboardMarkup:
-    """Support view."""
+    """Support - opens DM to admin directly."""
     builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="💬 Chat with Support", url="https://t.me/OverrMaxx")
+    )
     builder.row(
         InlineKeyboardButton(text="⬅️ Back", callback_data="back_main")
     )

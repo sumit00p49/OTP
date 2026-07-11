@@ -401,8 +401,8 @@ def format_support() -> str:
     return (
         "🆘 <b>Support</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "Need help? Contact us:\n\n"
-        "📩 <b>Telegram:</b> @KaizenSeller\n"
+        "Need help? Tap below to chat:\n\n"
+        "📩 <b>Telegram:</b> @OverrMaxx\n"
         "⏰ <b>Response:</b> Within 1 hour\n\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
         "💡 Have your User ID and Order ID ready."
