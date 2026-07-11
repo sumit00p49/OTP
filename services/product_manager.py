@@ -22,7 +22,6 @@ DEFAULT_PRODUCTS = [
         "price": 70,
         "max_lzt": 0.60,
         "filters": {
-            "origin[]": "autoreg",
             "nsb": 1,
             "telegram_password": 0,
         }
@@ -121,22 +120,18 @@ def update_product_filters(code: str, filters: dict) -> bool:
 if not os.path.exists(PRODUCTS_FILE):
     _save_products(DEFAULT_PRODUCTS)
 else:
-    # Migration: set correct filters for ALL products
-    # Autoreg + No Spamblock + No Password = best quality accounts
+    # Migration: REMOVE origin filter (was autoreg, but accounts are phishing origin!)
+    # Only keep nsb=1 (no spamblock) and telegram_password=0
     products = _load_products()
     changed = False
-    correct_filters = {
-        "origin[]": "autoreg",
-        "nsb": 1,
-        "telegram_password": 0,
-    }
     for p in products:
-        if p.get("filters") != correct_filters:
-            p["filters"] = correct_filters.copy()
+        filters = p.get("filters", {})
+        if "origin[]" in filters:
+            del filters["origin[]"]
             changed = True
     if changed:
         _save_products(products)
-        logger.info("Migration: set all products to autoreg+nsb+no_password filters")
+        logger.info("Migration: removed origin[] filter (was blocking stock)")
 
 
 
