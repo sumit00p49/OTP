@@ -44,7 +44,7 @@ import time
 
 _stock_cache = {}  # {country_code: count}
 _cache_time = 0    # last update timestamp
-CACHE_TTL = 60     # refresh every 60 seconds
+CACHE_TTL = 600    # refresh every 10 minutes (600 seconds)
 
 
 async def _refresh_stock_cache():
@@ -78,15 +78,28 @@ async def get_cached_stock() -> dict:
     return _stock_cache
 
 
+# Country phone codes for display
+COUNTRY_PHONE_CODES = {
+    "IN": "+91", "US": "+1", "GB": "+44", "UK": "+44", "CA": "+1",
+    "ID": "+62", "BD": "+880", "MM": "+95", "VN": "+84", "RU": "+7",
+    "BR": "+55", "PH": "+63", "PK": "+92", "TH": "+66", "TR": "+90",
+    "EG": "+20", "NG": "+234", "MX": "+52", "AU": "+61", "DE": "+49",
+    "FR": "+33", "IT": "+39", "ES": "+34", "NL": "+31", "PL": "+48",
+    "UA": "+380", "MY": "+60", "SG": "+65", "JP": "+81", "KR": "+82",
+    "GH": "+233", "SD": "+249", "SO": "+252", "TZ": "+255", "PT": "+351",
+    "IE": "+353", "GR": "+30", "SE": "+46", "NO": "+47", "FI": "+358",
+}
+
+
 @router.callback_query(F.data == "buy_account")
 async def buy_account_start(callback: CallbackQuery, state: FSMContext):
-    """Show country/product selection with CACHED stock counts (INSTANT!)."""
+    """Show country/product selection with CACHED stock counts."""
     await state.clear()
 
     products = get_all_products()
     stock_counts = await get_cached_stock()
 
-    # Build keyboard with stock counts
+    # Build keyboard like screenshot: 🇬🇧 +44 - gb - United Kingdom - ₹80 (52)
     from aiogram.utils.keyboard import InlineKeyboardBuilder
     from aiogram.types import InlineKeyboardButton
     builder = InlineKeyboardBuilder()
@@ -95,10 +108,11 @@ async def buy_account_start(callback: CallbackQuery, state: FSMContext):
         name = p.get("name", p["code"])
         price = p.get("price", 0)
         code = p["code"]
+        phone_code = COUNTRY_PHONE_CODES.get(code.upper(), "")
         stock = stock_counts.get(code, 0)
         builder.row(
             InlineKeyboardButton(
-                text=f"{flag} {name}  —  ₹{price:.0f}  ({stock} in stock)",
+                text=f"{flag} {phone_code} - {code.lower()} - {name} - ₹{price:.0f} ({stock})",
                 callback_data=f"select_country:{code}",
             )
         )

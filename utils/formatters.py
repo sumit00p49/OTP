@@ -30,7 +30,8 @@ def format_buy_country_select() -> str:
     return (
         "🟢 Fresh Accounts\n"
         "──────────────────────\n"
-        "👇 Select a country:"
+        "👇 Select a country:\n\n"
+        "<i>📊 Stock reloads every 30 min</i>"
     )
 
 
