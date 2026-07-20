@@ -31,6 +31,7 @@ from handlers.transactions import router as transactions_router
 from handlers.rating import router as rating_router
 from handlers.preview import router as preview_router
 from handlers.language import router as language_router
+from handlers.devices import router as devices_router
 
 # Configure logging
 logging.basicConfig(
@@ -127,6 +128,7 @@ async def main():
     dp.include_router(rating_router)
     dp.include_router(preview_router)
     dp.include_router(language_router)
+    dp.include_router(devices_router)
 
     logger.info("Bot is running! Press Ctrl+C to stop.")
     await dp.start_polling(bot)

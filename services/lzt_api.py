@@ -282,6 +282,85 @@ class LZTMarketAPI:
             logger.warning("telegram-login-code failed for %s: %s", item_id, e.message)
             return None
 
+    async def get_telegram_active_sessions(self, item_id) -> list:
+        """
+        Get active sessions/devices for a purchased Telegram account.
+        
+        LZT API mirrors web: GET /{item_id}/telegram-active-sessions
+        If that fails, try GET /{item_id} and check for sessions data.
+        
+        Returns list of sessions: [{"device": "...", "location": "...", "app": "...", "active": "..."}, ...]
+        """
+        try:
+            # Primary: dedicated endpoint
+            result = await self._request("GET", f"/{item_id}/telegram-active-sessions")
+            logger.info("active-sessions for %s: keys=%s", item_id, list(result.keys()))
+
+            sessions = result.get("sessions", [])
+            if not sessions:
+                sessions = result.get("authorizations", [])
+            if not sessions:
+                # Try nested under "item"
+                item = result.get("item", {})
+                sessions = item.get("sessions", item.get("authorizations", []))
+
+            return self._parse_sessions(sessions)
+
+        except LZTAPIError as e:
+            # Fallback: try validation endpoint
+            logger.info("active-sessions endpoint failed (%s), trying validate...", e.message)
+            try:
+                result = await self._request("GET", f"/{item_id}/check-account")
+                sessions = result.get("sessions", result.get("authorizations", []))
+                if sessions:
+                    return self._parse_sessions(sessions)
+            except Exception:
+                pass
+
+            return []
+
+    async def terminate_all_sessions(self, item_id) -> bool:
+        """
+        Terminate/reset all other sessions on a purchased Telegram account.
+        
+        LZT API: POST /{item_id}/telegram-reset-auth
+        This removes all devices except the current login session.
+        
+        Returns True if successful.
+        """
+        try:
+            result = await self._request("POST", f"/{item_id}/telegram-reset-auth")
+            logger.info("reset-auth for %s: %s", item_id, result)
+            return True
+        except LZTAPIError as e:
+            logger.warning("telegram-reset-auth failed for %s: %s", item_id, e.message)
+            return False
+
+    @staticmethod
+    def _parse_sessions(raw_sessions) -> list:
+        """Parse raw session data into clean format."""
+        parsed = []
+        if not raw_sessions or not isinstance(raw_sessions, list):
+            return parsed
+
+        for s in raw_sessions:
+            if isinstance(s, dict):
+                session = {
+                    "device": s.get("device_model", s.get("device", "Unknown")),
+                    "platform": s.get("platform", s.get("system_version", "")),
+                    "app": s.get("app_name", s.get("app_version", "")),
+                    "ip": s.get("ip", s.get("ip_address", "")),
+                    "location": s.get("country", s.get("region", s.get("location", ""))),
+                    "active": s.get("date_active", s.get("last_active", "")),
+                    "current": s.get("current", s.get("is_current", False)),
+                    "hash": s.get("hash", ""),
+                }
+                parsed.append(session)
+            elif isinstance(s, str):
+                parsed.append({"device": s, "platform": "", "app": "", "ip": "", "location": "", "active": "", "current": False, "hash": ""})
+
+        return parsed
+
     @staticmethod
     def extract_account_data(payload: dict) -> dict:
         """

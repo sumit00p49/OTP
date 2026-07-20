@@ -52,9 +52,10 @@ async def init_product_db():
     """Initialize MongoDB connection for products (call once at startup)."""
     global _mongo_client, _mongo_db, _use_mongo
 
-    mongo_uri = os.getenv("MONGO_URI", "")
+    from config import MONGO_URI
+    mongo_uri = MONGO_URI
     if not mongo_uri:
-        logger.info("MONGO_URI not set. Using local JSON file for products.")
+        logger.info("MONGO_URI not set in .env — Using local JSON file for products.")
         _use_mongo = False
         return
 
