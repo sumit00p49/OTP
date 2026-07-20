@@ -68,10 +68,6 @@ def add_product(code: str, name: str, flag: str, price: float, max_lzt: float, f
         if p["code"].upper() == code.upper():
             return False
 
-    # Add nsb=1 only if user explicitly wants OTP-only accounts
-    # NOTE: nsb=1 is very restrictive at low prices, most cheap accounts have spamblock
-    # So we DON'T force it by default anymore
-
     products.append({
         "code": code.upper(),
         "name": name,
@@ -116,25 +112,6 @@ def update_product_filters(code: str, filters: dict) -> bool:
     return False
 
 
-# Initialize products file if not exists
-if not os.path.exists(PRODUCTS_FILE):
-    _save_products(DEFAULT_PRODUCTS)
-else:
-    # Migration: REMOVE origin filter (was autoreg, but accounts are phishing origin!)
-    # Only keep nsb=1 (no spamblock) and telegram_password=0
-    products = _load_products()
-    changed = False
-    for p in products:
-        filters = p.get("filters", {})
-        if "origin[]" in filters:
-            del filters["origin[]"]
-            changed = True
-    if changed:
-        _save_products(products)
-        logger.info("Migration: removed origin[] filter (was blocking stock)")
-
-
-
 def update_product_max_lzt(code: str, max_lzt: float) -> bool:
     """Update max LZT price (USD) for a product."""
     products = _load_products()
@@ -144,3 +121,8 @@ def update_product_max_lzt(code: str, max_lzt: float) -> bool:
             _save_products(products)
             return True
     return False
+
+
+# Initialize products file if not exists (DO NOT run any migration that deletes filters!)
+if not os.path.exists(PRODUCTS_FILE):
+    _save_products(DEFAULT_PRODUCTS)

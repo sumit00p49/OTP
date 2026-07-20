@@ -118,6 +118,16 @@ class LZTMarketAPI:
     async def search_accounts(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> list:
         """
         Search Telegram accounts with per-country filters.
+        
+        IMPORTANT: All filter values must be sent as proper types to aiohttp.
+        LZT API filter keys:
+          - nsb=1          → No spam block (CRITICAL for OTP accounts!)
+          - sb=1           → Has spam block
+          - telegram_password=0 → No 2FA password
+          - telegram_password=1 → Has 2FA password
+          - origin[]=resale/autoreg/personal/stealer
+          - not_sold_before=1 → Never sold
+          - telegram_premium=1 → Has premium
         """
         # Fix common country code mistakes
         country = _fix_country_code(country)
@@ -127,12 +137,16 @@ class LZTMarketAPI:
             "order_by": "price_to_up",
         }
         if pmax is not None:
-            params["pmax"] = pmax
+            params["pmax"] = str(pmax)
 
         # Apply per-country filters from PRODUCTS config
+        # CRITICAL: Each filter must be included as a query parameter
         if extra_filters and isinstance(extra_filters, dict):
-            params.update(extra_filters)
+            for key, value in extra_filters.items():
+                # Convert all values to string for consistent HTTP params
+                params[key] = str(value) if value is not None else ""
 
+        logger.info("LZT search params: %s", params)
         result = await self._request("GET", "/telegram", params=params)
         items = result.get("items", [])
         if isinstance(items, dict):
@@ -147,9 +161,10 @@ class LZTMarketAPI:
             "order_by": "price_to_up",
         }
         if pmax is not None:
-            params["pmax"] = pmax
+            params["pmax"] = str(pmax)
         if extra_filters and isinstance(extra_filters, dict):
-            params.update(extra_filters)
+            for key, value in extra_filters.items():
+                params[key] = str(value) if value is not None else ""
 
         try:
             result = await self._request("GET", "/telegram", params=params)

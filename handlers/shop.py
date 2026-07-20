@@ -230,6 +230,10 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
 
     for i in range(qty):
         try:
+            logger.info(
+                "Searching item #%d for %s: pmax=$%.2f, filters=%s",
+                i + 1, country_code, max_lzt, filters,
+            )
             items = await lzt_api.search_accounts(
                 country=country_code,
                 pmax=max_lzt,
