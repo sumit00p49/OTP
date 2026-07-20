@@ -443,14 +443,15 @@ async def reject(callback: CallbackQuery):
 # ==================== FILTER EDITOR ====================
 # Available LZT Telegram filters (from website screenshot):
 LZT_FILTERS = [
-    {"key": "nsb", "val": 1, "label": "🟢 No Spam Block", "desc": "Only accounts WITHOUT spam block (login works)"},
+    {"key": "nsb", "val": 1, "label": "🟢 No Spam Block (AUTO)", "desc": "Only accounts WITHOUT spam block (login works)"},
     {"key": "sb", "val": 1, "label": "🔴 Has Spam Block", "desc": "Only accounts WITH spam block"},
+    {"key": "eg", "val": 1, "label": "📧 Has Gmail/Email (AUTO)", "desc": "Only accounts with email linked"},
+    {"key": "telegram_password", "val": 0, "label": "🔓 No Password (AUTO)", "desc": "No 2FA password"},
+    {"key": "telegram_password", "val": 1, "label": "🔐 Has 2FA Password", "desc": "Account has password"},
     {"key": "origin[]", "val": "resale", "label": "📦 Resale", "desc": "Resold accounts (cheapest)"},
     {"key": "origin[]", "val": "autoreg", "label": "🤖 Autoreg", "desc": "Auto-registered (cleaner)"},
     {"key": "origin[]", "val": "personal", "label": "👤 Personal", "desc": "Real personal accounts"},
     {"key": "origin[]", "val": "stealer", "label": "🕵️ Stealer", "desc": "From stealers/phishing"},
-    {"key": "telegram_password", "val": 1, "label": "🔐 Has 2FA Password", "desc": "Account has password"},
-    {"key": "telegram_password", "val": 0, "label": "🔓 No Password", "desc": "No 2FA password"},
     {"key": "not_sold_before", "val": 1, "label": "🆕 Never Sold Before", "desc": "First-time sale only"},
     {"key": "telegram_premium", "val": 1, "label": "⭐ Has Premium", "desc": "Telegram Premium accounts only"},
 ]
@@ -478,13 +479,20 @@ async def filter_editor(callback: CallbackQuery):
         return await callback.answer("❌ Not found", show_alert=True)
 
     current_filters = product.get("filters", {})
+    
+    # Show effective filters (global + product)
+    from services.product_manager import get_effective_filters, GLOBAL_DEFAULT_FILTERS
+    effective = get_effective_filters(product)
+    
     msg = f"🔧 <b>Filters: {product['flag']} {product['name']}</b>\n━━━━━━━━━━━━━━━━━━━━━\n\n"
-    msg += "<b>Current:</b> "
+    msg += "🌐 <b>Auto-Applied (ALL countries):</b>\n"
+    msg += "   " + ", ".join(f"{k}={v}" for k,v in GLOBAL_DEFAULT_FILTERS.items()) + "\n\n"
+    msg += "<b>Extra (this country):</b> "
     if current_filters:
         msg += ", ".join(f"{k}={v}" for k,v in current_filters.items())
     else:
-        msg += "None (all accounts)"
-    msg += "\n\n<b>Tap to toggle ON/OFF:</b>\n"
+        msg += "None"
+    msg += "\n\n<b>Tap to add/remove EXTRA filters:</b>\n"
 
     b = InlineKeyboardBuilder()
     for f in LZT_FILTERS:

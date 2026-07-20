@@ -74,6 +74,11 @@ MIN_DEPOSIT = float(os.getenv("MIN_DEPOSIT", "10.0"))
 # ==================== Database ====================
 DB_PATH = os.getenv("DB_PATH", "bot_database.db")
 
+# ==================== MongoDB (Products) ====================
+# If set, products are stored in MongoDB (persistent across restarts)
+# If not set, falls back to local products.json file
+MONGO_URI = os.getenv("MONGO_URI", "")
+
 
 def get_product(code: str) -> dict:
     """Get product config by country code."""

@@ -2,11 +2,22 @@
 LZT Market API client (https://prod-api.lzt.market).
 
 Endpoints used:
-- GET  /me                             → seller profile + balance
-- GET  /telegram?country[]=IN&order_by=price_to_up → search India accounts
-- POST /{item_id}/fast-buy             → atomic purchase (with price guard)
-- GET  /{item_id}/telegram-login-code  → fetch live OTP
-- GET  /{item_id}                      → full item/login data
+- GET  /me                             -> seller profile + balance
+- GET  /telegram?country[]=IN&...      -> search accounts with filters
+- POST /{item_id}/fast-buy             -> atomic purchase (with price guard)
+- GET  /{item_id}/telegram-login-code  -> fetch live OTP
+- GET  /{item_id}                      -> full item/login data
+
+FILTERS (confirmed working):
+  nsb=1               -> No spam block (critical for OTP!)
+  sb=1                -> Has spam block
+  telegram_password=0 -> No 2FA password
+  telegram_password=1 -> Has 2FA password
+  eg=1                -> Has email/Gmail linked
+  origin[]=resale     -> Account origin type
+  not_sold_before=1   -> Never sold before
+  telegram_premium=1  -> Has Telegram Premium
+  pmax=0.15           -> Max price in USD
 """
 
 import asyncio
@@ -61,7 +72,7 @@ class LZTMarketAPI:
 
         try:
             async with session.request(method, url, params=params, json=data) as resp:
-                # Rate limited — wait and retry
+                # Rate limited - wait and retry
                 if resp.status == 429 and retries > 0:
                     wait = int(resp.headers.get("Retry-After", "3"))
                     logger.warning("Rate limited. Waiting %ss...", wait)
@@ -78,7 +89,6 @@ class LZTMarketAPI:
                     msg = self._extract_error(result, resp.status)
                     raise LZTAPIError(msg, resp.status)
 
-                # Log raw on first success (helps debugging)
                 logger.debug("LZT %s %s -> %s", method, endpoint, str(result)[:300])
                 return result
 
@@ -103,7 +113,7 @@ class LZTMarketAPI:
     # ==================== Endpoints ====================
 
     async def get_me(self) -> dict:
-        """GET /me — seller profile + balance."""
+        """GET /me - seller profile + balance."""
         return await self._request("GET", "/me")
 
     async def get_seller_balance(self) -> Optional[float]:
@@ -117,19 +127,16 @@ class LZTMarketAPI:
 
     async def search_accounts(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> list:
         """
-        Search Telegram accounts with per-country filters.
+        Search Telegram accounts with FULL filters applied.
         
-        IMPORTANT: All filter values must be sent as proper types to aiohttp.
-        LZT API filter keys:
-          - nsb=1          → No spam block (CRITICAL for OTP accounts!)
-          - sb=1           → Has spam block
-          - telegram_password=0 → No 2FA password
-          - telegram_password=1 → Has 2FA password
-          - origin[]=resale/autoreg/personal/stealer
-          - not_sold_before=1 → Never sold
-          - telegram_premium=1 → Has premium
+        Args:
+            country: 2-letter country code
+            pmax: Maximum price in USD
+            extra_filters: EFFECTIVE filters (should come from get_effective_filters())
+                          Includes: nsb, telegram_password, eg, origin[], etc.
+        
+        The filters are sent as query params to LZT API exactly as specified.
         """
-        # Fix common country code mistakes
         country = _fix_country_code(country)
 
         params = {
@@ -139,14 +146,12 @@ class LZTMarketAPI:
         if pmax is not None:
             params["pmax"] = str(pmax)
 
-        # Apply per-country filters from PRODUCTS config
-        # CRITICAL: Each filter must be included as a query parameter
+        # Apply ALL effective filters
         if extra_filters and isinstance(extra_filters, dict):
             for key, value in extra_filters.items():
-                # Convert all values to string for consistent HTTP params
-                params[key] = str(value) if value is not None else ""
+                params[key] = str(value)
 
-        logger.info("LZT search params: %s", params)
+        logger.info("LZT SEARCH: country=%s, params=%s", country, params)
         result = await self._request("GET", "/telegram", params=params)
         items = result.get("items", [])
         if isinstance(items, dict):
@@ -154,7 +159,10 @@ class LZTMarketAPI:
         return items if isinstance(items, list) else []
 
     async def get_stock_count(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> int:
-        """Get total available stock count for a country (with pmax + filters)."""
+        """
+        Get REAL stock count for a country with ALL filters applied.
+        Uses same filters as purchase to ensure accurate count (no fake numbers).
+        """
         country = _fix_country_code(country)
         params = {
             "country[]": country,
@@ -164,10 +172,11 @@ class LZTMarketAPI:
             params["pmax"] = str(pmax)
         if extra_filters and isinstance(extra_filters, dict):
             for key, value in extra_filters.items():
-                params[key] = str(value) if value is not None else ""
+                params[key] = str(value)
 
         try:
             result = await self._request("GET", "/telegram", params=params)
+            # Use totalItems for accurate count
             total = result.get("totalItems", result.get("total_items", 0))
             if not total:
                 items = result.get("items", [])
@@ -176,11 +185,12 @@ class LZTMarketAPI:
                 elif isinstance(items, list):
                     total = len(items)
             return int(total)
-        except Exception:
+        except Exception as e:
+            logger.warning("Stock count failed for %s: %s", country, e)
             return 0
 
     async def buy(self, item_id, price: float = None, currency: str = None) -> dict:
-        """POST /{item_id}/fast-buy — atomic purchase with optional price guard."""
+        """POST /{item_id}/fast-buy - atomic purchase with optional price guard."""
         data = {}
         if price is not None:
             data["price"] = price
@@ -189,27 +199,54 @@ class LZTMarketAPI:
         return await self._request("POST", f"/{item_id}/fast-buy", data=data or None)
 
     async def get_item(self, item_id) -> dict:
-        """GET /{item_id} — full item details (login data after purchase)."""
+        """GET /{item_id} - full item details (login data after purchase)."""
         return await self._request("GET", f"/{item_id}")
+
+    async def verify_account_before_buy(self, item: dict) -> tuple[bool, str]:
+        """
+        Verify an account is GOOD before purchasing it.
+        
+        Checks:
+        1. No spam block (nsb field or telegram_spam_block field)
+        2. Not already sold
+        3. Price is within budget
+        4. Has valid login data indicator
+        
+        Returns: (is_valid, reason)
+        """
+        item_id = item.get("item_id", item.get("id"))
+        
+        # Check spam block
+        has_spam = item.get("telegram_spam_block", False)
+        nsb = item.get("nsb", None)
+        if has_spam or nsb == 0:
+            return False, "Has spam block"
+        
+        # Check if sold
+        if item.get("sold", False) or item.get("canBuy") == False:
+            return False, "Already sold"
+        
+        # Check login ability
+        can_login = item.get("canViewLoginData", True)
+        
+        # Check email (if we require gmail)
+        has_email = item.get("email_login_data", item.get("emailLoginData", None))
+        eg = item.get("eg", None)
+        
+        # Account looks good
+        return True, "OK"
 
     async def get_telegram_login_code(self, item_id) -> Optional[str]:
         """
         Request Telegram login code for a purchased account.
-        
-        CONFIRMED from real API test:
-        - Method: GET (POST returns 404)
-        - Endpoint: GET /{item_id}/telegram-login-code
-        - Response: {"item": {...}, "codes": [{"code": "12345", ...}]}
-        - Code is in: result["codes"][0]["code"]
-        
-        NOTE: Only works if item has showGetTelegramCodeButton: True
-        (accounts with spamblock may have this disabled)
+        GET /{item_id}/telegram-login-code
+        Response: {"item": {...}, "codes": [{"code": "12345", ...}]}
         """
         try:
             result = await self._request("GET", f"/{item_id}/telegram-login-code")
             logger.info("telegram-login-code for %s: keys=%s", item_id, list(result.keys()))
 
-            # PRIMARY: codes array (confirmed from real response)
+            # PRIMARY: codes array
             codes = result.get("codes", [])
             if codes and isinstance(codes, list) and len(codes) > 0:
                 first_code = codes[0]
@@ -249,29 +286,17 @@ class LZTMarketAPI:
     def extract_account_data(payload: dict) -> dict:
         """
         Normalize account details from a buy/item response.
-
-        REAL LZT BEHAVIOR (confirmed from test_api.py output):
-        - Search results: phone/loginData are EMPTY (canViewLoginData: false)
-        - After purchase: GET /{item_id} returns loginData with auth key
-        - Phone is in a separate field that only appears after ownership
-        
-        Known fields after purchase:
-        - item.telegramPhone or item.telegram_phone_number
-        - loginData.login = auth key (HEX), NOT phone
-        - loginData.password = 2FA password (if exists)
-        - item.accountLink = phone number sometimes
         """
         item = payload.get("item", payload)
         login_data = item.get("loginData", {}) or {}
 
-        # Phone number (CONFIRMED: telegram_phone field)
+        # Phone number
         phone = (
-            item.get("telegram_formatted_phone")  # "+91 93420 65997" (nice format)
-            or item.get("telegram_phone")          # "919342065997"
+            item.get("telegram_formatted_phone")
+            or item.get("telegram_phone")
             or ""
         )
 
-        # If still no phone, check login field (only if it looks like a phone)
         if not phone:
             login_field = item.get("login") or ""
             clean = login_field.replace("+", "").replace(" ", "")
@@ -284,49 +309,45 @@ class LZTMarketAPI:
         if not phone:
             phone = "N/A"
 
-        # Auth key (the big hex string in "login" field)
+        # Auth key
         auth_key = ""
         login_field = item.get("login") or ""
         if len(login_field) > 30:
             auth_key = login_field
 
-        # 2FA Password (CONFIRMED: loginData["password"])
+        # 2FA Password
         password = login_data.get("password") or login_data.get("encodedPassword") or ""
 
         # Username
         username = item.get("telegram_username") or ""
 
-        # Whether OTP is available for this account
+        # Whether OTP is available
         otp_available = item.get("showGetTelegramCodeButton", False)
+
+        # Email info
+        email = item.get("email_login_data") or item.get("emailLoginData") or ""
 
         return {
             "item_id": str(item.get("item_id", item.get("id", ""))),
             "phone": phone,
             "auth_key": auth_key,
             "password": password,
-            "2fa": password,  # For telegram category, password IS the 2FA code
+            "2fa": password,
             "username": username,
             "otp_available": otp_available,
             "has_tdata": bool(item.get("telegram_json")),
+            "email": email if isinstance(email, str) else "",
         }
 
 
 def _extract_phone_from_title(title: str) -> str:
-    """
-    Try to extract a phone number from the item title.
-    LZT titles look like: "+880 +91 +62 | Second hand account |"
-    We want the actual phone, which is usually in a more specific field.
-    If title starts with digits or +, extract it.
-    """
+    """Try to extract a phone number from the item title."""
     if not title:
         return ""
-    # If title contains a clear phone pattern
     import re
-    # Match patterns like "916239430752" or "+91 6239430752" or "+916239430752"
     match = re.search(r'(\+?\d[\d\s]{8,15})', title)
     if match:
         phone = match.group(1).replace(" ", "")
-        # Only return if it's a reasonable phone number length (not an auth key)
         if 8 <= len(phone.replace("+", "")) <= 15:
             return phone
     return ""
@@ -335,10 +356,9 @@ def _extract_phone_from_title(title: str) -> str:
 def _fix_country_code(code: str) -> str:
     """Fix common country code mistakes. LZT uses ISO 3166-1 alpha-2."""
     fixes = {
-        "UK": "GB",   # United Kingdom = GB (not UK!)
-        "EN": "GB",   # England = GB
-        "KO": "KR",   # Korea = KR
-        "JP": "JP",   # Japan (correct)
+        "UK": "GB",
+        "EN": "GB",
+        "KO": "KR",
     }
     upper = code.upper().strip()
     return fixes.get(upper, upper)

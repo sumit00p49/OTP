@@ -67,6 +67,10 @@ async def on_startup(bot: Bot):
     await init_db()
     logger.info("Database initialized.")
 
+    # Initialize MongoDB for products (if configured)
+    from services.product_manager import init_product_db
+    await init_product_db()
+
     # Best-effort LZT API key verification
     try:
         balance = await lzt_api.get_seller_balance()
