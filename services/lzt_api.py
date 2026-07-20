@@ -319,6 +319,27 @@ class LZTMarketAPI:
 
             return []
 
+    async def terminate_single_session(self, item_id, session_hash: str) -> bool:
+        """
+        Terminate a SINGLE specific session by its hash.
+        
+        LZT API: POST /{item_id}/telegram-reset-auth?hash={session_hash}
+        Only removes that one device, others remain active.
+        
+        Returns True if successful.
+        """
+        try:
+            result = await self._request(
+                "POST",
+                f"/{item_id}/telegram-reset-auth",
+                data={"hash": session_hash},
+            )
+            logger.info("single reset-auth for %s hash=%s: %s", item_id, session_hash, result)
+            return True
+        except LZTAPIError as e:
+            logger.warning("single reset-auth failed for %s hash=%s: %s", item_id, session_hash, e.message)
+            return False
+
     async def terminate_all_sessions(self, item_id) -> bool:
         """
         Terminate/reset all other sessions on a purchased Telegram account.
