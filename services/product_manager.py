@@ -26,7 +26,9 @@ GLOBAL_DEFAULT_FILTERS = {
     "nsb": 1,             # No spam block
     "spam": "no",         # No spam block (confirmed from lzt.market URL)
     "email": "yes",       # Has email/Gmail linked (confirmed: email=yes)
-    "password": "no",     # No 2FA password — LZT uses yes/no pattern (NOT telegram_password=0)
+    # These 3 are the EXACT filters from the user's tested working URL:
+    # lzt.market/telegram/?nsb=1&country[]=IN&email=yes&spam=no
+    # DO NOT add 'password' param — it breaks the API and returns 0 stock.
 }
 
 # ==================== MongoDB Backend ====================
