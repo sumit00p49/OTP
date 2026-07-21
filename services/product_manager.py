@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 GLOBAL_DEFAULT_FILTERS = {
     "nsb": 1,                # No spam block (MUST for OTP to work)
     "telegram_password": 0,  # No 2FA password (easier login)
-    "eg": 1,                 # Has email/Gmail linked
 }
 
 # ==================== MongoDB Backend ====================
@@ -41,9 +40,9 @@ DEFAULT_PRODUCTS = [
         "code": "IN",
         "name": "India",
         "flag": "\U0001f1ee\U0001f1f3",
-        "price": 70,
-        "max_lzt": 0.60,
-        "filters": {}  # Global defaults will be merged automatically
+        "price": 26,
+        "max_lzt": 0.12,
+        "filters": {}
     }
 ]
 
