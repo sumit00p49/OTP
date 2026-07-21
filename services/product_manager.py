@@ -23,12 +23,10 @@ logger = logging.getLogger(__name__)
 # These are ALWAYS applied to every country search.
 # Admin doesn't need to set these manually!
 GLOBAL_DEFAULT_FILTERS = {
-    "nsb": 1,                # No spam block
-    "spam": "no",            # No spam block (MAIN filter — confirmed from lzt.market URL)
-    "email": "yes",          # Has email/Gmail linked (confirmed: email=yes)
-    # NOTE: telegram_password removed — it was reducing stock too much.
-    # It was NOT in the user's tested working URL. Password (if any) is
-    # still delivered to the buyer, so login always works.
+    "nsb": 1,             # No spam block
+    "spam": "no",         # No spam block (confirmed from lzt.market URL)
+    "email": "yes",       # Has email/Gmail linked (confirmed: email=yes)
+    "password": "no",     # No 2FA password — LZT uses yes/no pattern (NOT telegram_password=0)
 }
 
 # ==================== MongoDB Backend ====================
