@@ -34,16 +34,14 @@ _use_mongo = False
 
 PRODUCTS_FILE = "products.json"
 
-# Default product if nothing exists
+# Default products if products.json doesn't exist.
+# NOTE: products.json is gitignored — edit it directly on your server.
+# This default is only used the very first time (or if the file is deleted).
 DEFAULT_PRODUCTS = [
-    {
-        "code": "IN",
-        "name": "India",
-        "flag": "\U0001f1ee\U0001f1f3",
-        "price": 26,
-        "max_lzt": 0.12,
-        "filters": {}
-    }
+    {"code": "IN", "name": "India", "flag": "\U0001f1ee\U0001f1f3", "price": 26, "max_lzt": 0.12, "filters": {}},
+    {"code": "BD", "name": "Bangladesh", "flag": "\U0001f1e7\U0001f1e9", "price": 20, "max_lzt": 0.12, "filters": {}},
+    {"code": "ID", "name": "Indonesia", "flag": "\U0001f1ee\U0001f1e9", "price": 25, "max_lzt": 0.12, "filters": {}},
+    {"code": "MM", "name": "Myanmar", "flag": "\U0001f1f2\U0001f1f2", "price": 22, "max_lzt": 0.12, "filters": {}},
 ]
 
 

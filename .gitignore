@@ -16,3 +16,7 @@ bot_database.db*
 
 # Logs
 *.log
+
+
+# Products config — edit directly on server, don't let git pull overwrite it
+products.json

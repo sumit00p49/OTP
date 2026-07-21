@@ -162,7 +162,19 @@ class LZTMarketAPI:
         items = result.get("items", [])
         if isinstance(items, dict):
             items = list(items.values())
-        return items if isinstance(items, list) else []
+        items = items if isinstance(items, list) else []
+
+        # DEBUG: log spam block status of first few items to understand data
+        if items:
+            for it in items[:3]:
+                logger.info(
+                    "ITEM %s: spam_block=%s, price=%s, title=%s",
+                    it.get("item_id", it.get("id")),
+                    it.get("telegram_spam_block"),
+                    it.get("price"),
+                    str(it.get("title", ""))[:40],
+                )
+        return items
 
     async def get_stock_count(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> int:
         """
@@ -213,16 +225,12 @@ class LZTMarketAPI:
 
     async def verify_account_before_buy(self, item: dict) -> tuple[bool, str]:
         """
-        Verify an account is GOOD before purchasing it.
+        Verify an account has NO spam block before purchasing.
         
-        LZT API nsb=1 filter does NOT always work at low prices!
-        So we MUST check each item individually before buying.
-        
-        REJECT if:
-        1. Title contains ANY spam-related word
-        2. telegram_spam_block field is True
-        3. sb field is True/1
-        4. Already sold
+        The LZT listing shows "No spamblock" (green) vs "Permanent spamblock" (red).
+        This maps to the `telegram_spam_block` field:
+          - falsy (0/False/None with no other signal) = NO spam block = GOOD
+          - truthy (1/True/timestamp) = HAS spam block = REJECT
         
         Returns: (is_valid, reason)
         """
@@ -230,34 +238,36 @@ class LZTMarketAPI:
         title_en = str(item.get("title_en", "") or "").lower()
         full_title = title + " " + title_en
         
-        # SPAM BLOCK DETECTION — check title for ANY spam mention
+        # 1) PRIMARY CHECK: telegram_spam_block field (truthy = has spam block)
+        # Value can be True, 1, or a unix timestamp (when spam block expires)
+        spam_block = item.get("telegram_spam_block")
+        if spam_block:  # any truthy value = spam block present
+            return False, f"telegram_spam_block={spam_block}"
+        
+        # 2) sb field (has spam block flag)
+        sb = item.get("sb")
+        if sb:  # truthy = has spam block
+            return False, f"sb={sb}"
+        
+        # 3) nsb field — if EXPLICITLY 0/False, it has spam block
+        nsb = item.get("nsb")
+        if nsb is False or nsb == 0 or nsb == "0":
+            return False, "nsb=0 (has spam)"
+        
+        # 4) Title-based spam detection (backup)
         spam_keywords = [
-            "spamblock", "spam block", "spam_block",
-            "permanent spam", "spamblock untill", "spamblock until",
-            "spam block by geo", "spam block by", "geo spam",
-            "спамблок",  # Russian for spamblock
+            "permanent spamblock", "spamblock untill", "spamblock until",
+            "spam block by geo", "спамблок",
         ]
         for kw in spam_keywords:
             if kw in full_title:
                 return False, f"Title has '{kw}'"
         
-        # Explicit field checks
-        if item.get("telegram_spam_block") is True or item.get("telegram_spam_block") == 1:
-            return False, "telegram_spam_block=True"
-        
-        if item.get("sb") is True or item.get("sb") == 1 or item.get("sb") == "1":
-            return False, "sb=1"
-        
-        # nsb=False means HAS spam block
-        nsb = item.get("nsb")
-        if nsb is False or nsb == 0 or nsb == "0":
-            return False, "nsb=0 (has spam)"
-        
-        # Check if already sold
+        # 5) Already sold
         if item.get("sold") is True or item.get("canBuy") is False:
             return False, "Already sold"
         
-        # PASSED all checks
+        # PASSED — no spam block detected
         return True, "OK"
 
     async def get_telegram_login_code(self, item_id) -> Optional[str]:
