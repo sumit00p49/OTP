@@ -4,15 +4,15 @@
     "name": "India",
     "flag": "🇮🇳",
     "price": 26,
-    "max_lzt": 0.15,
+    "max_lzt": 0.16,
     "filters": {}
   },
   {
-    "code": "BD",
-    "name": "Bangladesh",
-    "flag": "🇧🇩",
-    "price": 20,
-    "max_lzt": 0.10,
+    "code": "US",
+    "name": "UNITED STATES",
+    "flag": "🇺🇸",
+    "price": 50,
+    "max_lzt": 0.25,
     "filters": {}
   },
   {
