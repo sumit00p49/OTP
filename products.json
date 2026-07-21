@@ -6,5 +6,37 @@
     "price": 26,
     "max_lzt": 0.12,
     "filters": {}
+  },
+  {
+    "code": "BD",
+    "name": "Bangladesh",
+    "flag": "🇧🇩",
+    "price": 20,
+    "max_lzt": 0.10,
+    "filters": {}
+  },
+  {
+    "code": "ID",
+    "name": "Indonesia",
+    "flag": "🇮🇩",
+    "price": 25,
+    "max_lzt": 0.10,
+    "filters": {}
+  },
+  {
+    "code": "MM",
+    "name": "Myanmar",
+    "flag": "🇲🇲",
+    "price": 22,
+    "max_lzt": 0.10,
+    "filters": {}
+  },
+  {
+    "code": "VN",
+    "name": "Vietnam",
+    "flag": "🇻🇳",
+    "price": 25,
+    "max_lzt": 0.10,
+    "filters": {}
   }
 ]
