@@ -164,16 +164,18 @@ class LZTMarketAPI:
             items = list(items.values())
         items = items if isinstance(items, list) else []
 
-        # DEBUG: log spam block status of first few items to understand data
+        # DEBUG: dump FULL structure of first item so we can see real field names
         if items:
-            for it in items[:3]:
-                logger.info(
-                    "ITEM %s: spam_block=%s, price=%s, title=%s",
-                    it.get("item_id", it.get("id")),
-                    it.get("telegram_spam_block"),
-                    it.get("price"),
-                    str(it.get("title", ""))[:40],
-                )
+            import json as _json
+            first = items[0]
+            # Log all keys that mention spam/block/tag
+            spam_related = {k: v for k, v in first.items() if any(
+                w in k.lower() for w in ["spam", "block", "tag", "nsb", "sb"]
+            )}
+            logger.info("=== FIRST ITEM SPAM-RELATED FIELDS: %s ===", spam_related)
+            logger.info("=== FIRST ITEM ALL KEYS: %s ===", list(first.keys()))
+            # Full dump (truncated) for deep inspection
+            logger.info("=== FIRST ITEM FULL JSON: %s ===", _json.dumps(first, default=str)[:2000])
         return items
 
     async def get_stock_count(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> int:
