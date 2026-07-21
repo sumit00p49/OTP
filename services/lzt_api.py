@@ -215,35 +215,49 @@ class LZTMarketAPI:
         """
         Verify an account is GOOD before purchasing it.
         
-        ONLY REJECT if we are SURE it has spam block.
-        If unsure (fields missing), ALLOW the purchase.
+        LZT API nsb=1 filter does NOT always work at low prices!
+        So we MUST check each item individually before buying.
         
-        We already filter nsb=1 in search params, so most results should be clean.
-        This is just a safety net for obvious bad accounts.
+        REJECT if:
+        1. Title contains ANY spam-related word
+        2. telegram_spam_block field is True
+        3. sb field is True/1
+        4. Already sold
         
         Returns: (is_valid, reason)
         """
-        title = str(item.get("title", "") or item.get("title_en", "")).lower()
+        title = str(item.get("title", "") or "").lower()
+        title_en = str(item.get("title_en", "") or "").lower()
+        full_title = title + " " + title_en
         
-        # ONLY reject if CLEAR spam block indicators exist
-        # 1. Explicit spam block field = True
-        if item.get("telegram_spam_block") is True:
+        # SPAM BLOCK DETECTION — check title for ANY spam mention
+        spam_keywords = [
+            "spamblock", "spam block", "spam_block",
+            "permanent spam", "spamblock untill", "spamblock until",
+            "spam block by geo", "spam block by", "geo spam",
+            "спамблок",  # Russian for spamblock
+        ]
+        for kw in spam_keywords:
+            if kw in full_title:
+                return False, f"Title has '{kw}'"
+        
+        # Explicit field checks
+        if item.get("telegram_spam_block") is True or item.get("telegram_spam_block") == 1:
             return False, "telegram_spam_block=True"
         
-        # 2. sb field explicitly True (means HAS spam block)
-        if item.get("sb") is True or item.get("sb") == 1:
+        if item.get("sb") is True or item.get("sb") == 1 or item.get("sb") == "1":
             return False, "sb=1"
         
-        # 3. Title contains spam block keywords
-        spam_keywords = ["permanent spamblock", "spamblock untill", "spam block by geo"]
-        if any(kw in title for kw in spam_keywords):
-            return False, f"Title contains spam keyword"
+        # nsb=False means HAS spam block
+        nsb = item.get("nsb")
+        if nsb is False or nsb == 0 or nsb == "0":
+            return False, "nsb=0 (has spam)"
         
-        # 4. Check if already sold
-        if item.get("sold") is True:
+        # Check if already sold
+        if item.get("sold") is True or item.get("canBuy") is False:
             return False, "Already sold"
         
-        # Everything else — ALLOW (don't be too strict)
+        # PASSED all checks
         return True, "OK"
 
     async def get_telegram_login_code(self, item_id) -> Optional[str]:

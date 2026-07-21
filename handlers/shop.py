@@ -308,22 +308,32 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
                     await asyncio.sleep(2)
                     continue  # Retry
 
-                # Pick item (skip previously tried ones)
-                item_index = min(attempt - 1, len(items) - 1)
-                item = items[item_index]
-                item_id = item.get("item_id", item.get("id"))
-
-                # ========== STRICT PRE-BUY VERIFICATION ==========
-                # CHECK BEFORE BUYING — don't waste money on spam accounts!
-                is_valid, reason = await lzt_api.verify_account_before_buy(item)
+                # SCAN through ALL items to find first CLEAN one
+                # Skip items we already bought in previous slots
+                bought_ids = {d["item_id"] for d in delivered}
+                clean_item = None
+                scanned = 0
                 
-                if not is_valid:
-                    logger.warning("Item %s REJECTED pre-buy: %s (attempt %d)", item_id, reason, attempt)
+                for candidate in items:
+                    cand_id = str(candidate.get("item_id", candidate.get("id", "")))
+                    if cand_id in bought_ids:
+                        continue  # Already bought this one
+                    
+                    is_valid, reason = await lzt_api.verify_account_before_buy(candidate)
+                    scanned += 1
+                    if is_valid:
+                        clean_item = candidate
+                        break
+                    else:
+                        logger.info("Skipping item %s: %s", cand_id, reason)
+                
+                if not clean_item:
+                    logger.warning("All %d items in results have spam block (attempt %d)", scanned, attempt)
                     await progress_msg.edit_text(
                         f"⏳ <b>Buying account {i+1}/{qty}...</b>\n\n"
                         f"🔄 Attempt {attempt}/{MAX_ATTEMPTS}\n"
-                        f"⚠️ Account #{item_id} rejected: {reason}\n"
-                        f"🔍 Trying next account...\n\n"
+                        f"⚠️ Scanned {scanned} accounts — all have spam block\n"
+                        f"🔍 Retrying with different search...\n\n"
                         f"━━━━━━━━━━━━━━━━━━━━━\n"
                         f"✅ Delivered: {len(delivered)}\n"
                         f"❌ Failed: {failed_count}\n"
@@ -331,8 +341,11 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
                         parse_mode="HTML",
                     )
                     import asyncio
-                    await asyncio.sleep(1)
-                    continue  # TRY NEXT — don't buy this one!
+                    await asyncio.sleep(2)
+                    continue  # Retry with next attempt
+
+                item = clean_item
+                item_id = item.get("item_id", item.get("id"))
 
                 # ========== VERIFIED CLEAN — NOW BUY ==========
                 lzt_price = float(item.get("price", 0))
