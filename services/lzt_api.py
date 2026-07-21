@@ -163,19 +163,7 @@ class LZTMarketAPI:
         if isinstance(items, dict):
             items = list(items.values())
         items = items if isinstance(items, list) else []
-
-        # DEBUG: dump FULL structure of first item so we can see real field names
-        if items:
-            import json as _json
-            first = items[0]
-            # Log all keys that mention spam/block/tag
-            spam_related = {k: v for k, v in first.items() if any(
-                w in k.lower() for w in ["spam", "block", "tag", "nsb", "sb"]
-            )}
-            logger.info("=== FIRST ITEM SPAM-RELATED FIELDS: %s ===", spam_related)
-            logger.info("=== FIRST ITEM ALL KEYS: %s ===", list(first.keys()))
-            # Full dump (truncated) for deep inspection
-            logger.info("=== FIRST ITEM FULL JSON: %s ===", _json.dumps(first, default=str)[:2000])
+        logger.info("LZT SEARCH returned %d items for %s", len(items), country)
         return items
 
     async def get_stock_count(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> int:
@@ -227,12 +215,11 @@ class LZTMarketAPI:
 
     async def verify_account_before_buy(self, item: dict) -> tuple[bool, str]:
         """
-        Verify an account has NO spam block before purchasing.
+        Light safety check before buying.
         
-        The LZT listing shows "No spamblock" (green) vs "Permanent spamblock" (red).
-        This maps to the `telegram_spam_block` field:
-          - falsy (0/False/None with no other signal) = NO spam block = GOOD
-          - truthy (1/True/timestamp) = HAS spam block = REJECT
+        The search already filters with spam=no & nsb=1, so results should be
+        clean. This is just a backup to catch anything obvious in the title.
+        We trust the search filter — only reject on CLEAR spam block in title.
         
         Returns: (is_valid, reason)
         """
@@ -240,23 +227,7 @@ class LZTMarketAPI:
         title_en = str(item.get("title_en", "") or "").lower()
         full_title = title + " " + title_en
         
-        # 1) PRIMARY CHECK: telegram_spam_block field (truthy = has spam block)
-        # Value can be True, 1, or a unix timestamp (when spam block expires)
-        spam_block = item.get("telegram_spam_block")
-        if spam_block:  # any truthy value = spam block present
-            return False, f"telegram_spam_block={spam_block}"
-        
-        # 2) sb field (has spam block flag)
-        sb = item.get("sb")
-        if sb:  # truthy = has spam block
-            return False, f"sb={sb}"
-        
-        # 3) nsb field — if EXPLICITLY 0/False, it has spam block
-        nsb = item.get("nsb")
-        if nsb is False or nsb == 0 or nsb == "0":
-            return False, "nsb=0 (has spam)"
-        
-        # 4) Title-based spam detection (backup)
+        # Only reject on OBVIOUS spam block words in title
         spam_keywords = [
             "permanent spamblock", "spamblock untill", "spamblock until",
             "spam block by geo", "спамблок",
@@ -265,11 +236,11 @@ class LZTMarketAPI:
             if kw in full_title:
                 return False, f"Title has '{kw}'"
         
-        # 5) Already sold
+        # Already sold
         if item.get("sold") is True or item.get("canBuy") is False:
             return False, "Already sold"
         
-        # PASSED — no spam block detected
+        # Trust the search filter (spam=no) — account is clean
         return True, "OK"
 
     async def get_telegram_login_code(self, item_id) -> Optional[str]:

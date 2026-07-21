@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 # These are ALWAYS applied to every country search.
 # Admin doesn't need to set these manually!
 GLOBAL_DEFAULT_FILTERS = {
-    "nsb": 1,                # No spam block (MUST for OTP to work)
+    "nsb": 1,                # No spam block
+    "spam": "no",            # No spam block (MAIN filter — confirmed from lzt.market URL)
+    "email": "yes",          # Has email/Gmail linked (confirmed: email=yes)
     "telegram_password": 0,  # No 2FA password (easier login)
 }
 
