@@ -294,8 +294,28 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
                 except Exception as e:
                     logger.warning("get_item failed after buy: %s", e)
                     account_data = lzt_api.extract_account_data(buy_result)
+                    item_details = buy_result
 
-                logger.info("Purchase #%d item %s - phone=%s", i + 1, item_id, account_data.get("phone"))
+                # POST-PURCHASE VERIFICATION: Check for spam block AFTER buying
+                # Because LZT search doesn't always show spam block status accurately
+                raw_item = item_details.get("item", item_details)
+                has_spam_block = (
+                    raw_item.get("telegram_spam_block", False)
+                    or "spamblock" in str(raw_item.get("title", "")).lower()
+                    or "spam block" in str(raw_item.get("title", "")).lower()
+                    or raw_item.get("sb", False)
+                )
+                has_password = bool(account_data.get("password") or account_data.get("2fa"))
+
+                if has_spam_block:
+                    logger.warning(
+                        "POST-BUY REJECT: item %s has spam block! Skipping delivery.",
+                        item_id,
+                    )
+                    # Don't deliver this account — count as failed
+                    continue
+
+                logger.info("Purchase #%d item %s - phone=%s, spam=NO ✅", i + 1, item_id, account_data.get("phone"))
 
                 # Best-effort: fetch login code
                 login_code = await lzt_api.get_telegram_login_code(item_id)

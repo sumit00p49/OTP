@@ -109,7 +109,6 @@ def account_delivered_keyboard(order_id: str, item_id: str = "") -> InlineKeyboa
         InlineKeyboardButton(text="👎 Bad", callback_data=f"rate:{order_id}:bad"),
     )
     builder.row(
-        InlineKeyboardButton(text="📱 Buy Another", callback_data="buy_account"),
         InlineKeyboardButton(text="🏠 Menu", callback_data="back_main"),
     )
     return builder.as_markup()

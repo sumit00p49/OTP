@@ -147,9 +147,15 @@ class LZTMarketAPI:
             params["pmax"] = str(pmax)
 
         # Apply ALL effective filters
+        # IMPORTANT: aiohttp handles param serialization. Pass values as-is (int/str)
+        # LZT API expects: nsb=1, telegram_password=0, eg=1 as integers in query string
         if extra_filters and isinstance(extra_filters, dict):
             for key, value in extra_filters.items():
-                params[key] = str(value)
+                # Keep numeric values as int, strings as-is
+                if isinstance(value, (int, float)):
+                    params[key] = value
+                else:
+                    params[key] = str(value)
 
         logger.info("LZT SEARCH: country=%s, params=%s", country, params)
         result = await self._request("GET", "/telegram", params=params)
@@ -172,7 +178,10 @@ class LZTMarketAPI:
             params["pmax"] = str(pmax)
         if extra_filters and isinstance(extra_filters, dict):
             for key, value in extra_filters.items():
-                params[key] = str(value)
+                if isinstance(value, (int, float)):
+                    params[key] = value
+                else:
+                    params[key] = str(value)
 
         try:
             result = await self._request("GET", "/telegram", params=params)
@@ -206,32 +215,41 @@ class LZTMarketAPI:
         """
         Verify an account is GOOD before purchasing it.
         
-        Checks:
-        1. No spam block (nsb field or telegram_spam_block field)
+        STRICT checks:
+        1. No spam block (multiple field checks + title scan)
         2. Not already sold
-        3. Price is within budget
-        4. Has valid login data indicator
+        3. No 2FA password (we filter telegram_password=0)
         
         Returns: (is_valid, reason)
         """
         item_id = item.get("item_id", item.get("id"))
+        title = str(item.get("title", "") or item.get("title_en", "")).lower()
         
-        # Check spam block
+        # Check spam block — STRICT (check ALL possible indicators)
         has_spam = item.get("telegram_spam_block", False)
-        nsb = item.get("nsb", None)
-        if has_spam or nsb == 0:
-            return False, "Has spam block"
+        nsb_field = item.get("nsb", None)  # nsb=True means NO spam block
+        sb_field = item.get("sb", False)   # sb=True means HAS spam block
+        
+        # Title-based spam detection
+        spam_keywords = ["spamblock", "spam block", "spam_block", "permanent spam", "spamblock untill"]
+        title_has_spam = any(kw in title for kw in spam_keywords)
+        
+        if has_spam or sb_field or title_has_spam:
+            return False, f"Has spam block (spam={has_spam}, sb={sb_field}, title={title_has_spam})"
+        
+        # If nsb field exists and is explicitly False/0, it means spam block present
+        if nsb_field is not None and not nsb_field and nsb_field != "":
+            return False, "nsb=False (has spam block)"
         
         # Check if sold
-        if item.get("sold", False) or item.get("canBuy") == False:
+        if item.get("sold", False) or item.get("canBuy") is False:
             return False, "Already sold"
         
-        # Check login ability
-        can_login = item.get("canViewLoginData", True)
-        
-        # Check email (if we require gmail)
-        has_email = item.get("email_login_data", item.get("emailLoginData", None))
-        eg = item.get("eg", None)
+        # Check 2FA password from item data
+        login_data = item.get("loginData", {}) or {}
+        has_pass = login_data.get("password") or item.get("telegram_password")
+        if has_pass and str(has_pass) not in ("", "0", "None", "False"):
+            return False, f"Has 2FA password: {has_pass}"
         
         # Account looks good
         return True, "OK"
