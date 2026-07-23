@@ -72,6 +72,17 @@ async def on_startup(bot: Bot):
     from services.product_manager import init_product_db
     await init_product_db()
 
+    # Start auto-payment verification poller (if Gmail configured)
+    from config import AUTO_VERIFY_ENABLED
+    from services.auto_payment import payment_poller
+    if AUTO_VERIFY_ENABLED:
+        from services.gmail_reader import test_connection
+        ok, msg = await asyncio.to_thread(test_connection)
+        logger.info("Gmail auto-verify: %s", msg)
+        asyncio.create_task(payment_poller(bot))
+    else:
+        logger.info("Gmail auto-verify DISABLED (set GMAIL_ADDRESS + GMAIL_APP_PASSWORD to enable).")
+
     # Best-effort LZT API key verification
     try:
         balance = await lzt_api.get_seller_balance()

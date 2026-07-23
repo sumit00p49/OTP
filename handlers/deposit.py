@@ -9,12 +9,13 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.types import URLInputFile
 
-from config import UPI_ID, UPI_NAME, MIN_DEPOSIT, ADMIN_GROUP_ID, ADMIN_IDS
+from config import UPI_ID, UPI_NAME, MIN_DEPOSIT, ADMIN_GROUP_ID, ADMIN_IDS, AUTO_VERIFY_ENABLED
 from states.deposit_states import DepositStates
 from keyboards.inline import (
     deposit_menu_keyboard,
     deposit_cancel_keyboard,
     deposit_check_keyboard,
+    auto_deposit_keyboard,
     admin_deposit_keyboard,
     back_to_main_keyboard,
 )
@@ -24,8 +25,11 @@ from utils.formatters import (
     format_deposit_screenshot_prompt,
     format_deposit_pending,
     format_admin_deposit_notification,
+    format_auto_deposit_prompt,
+    format_auto_deposit_waiting,
 )
 from database import get_db
+from services.auto_payment import reserve_unique_amount
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -87,6 +91,79 @@ async def deposit_check_now(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+@router.callback_query(F.data.startswith("auto_check:"))
+async def auto_check_payment(callback: CallbackQuery, state: FSMContext):
+    """User taps 'I've Paid — Check Now' on an auto-verify deposit."""
+    deposit_id = int(callback.data.split(":")[1])
+    db = await get_db()
+    cur = await db.execute(
+        "SELECT status FROM deposits WHERE id=?", (deposit_id,)
+    )
+    row = await cur.fetchone()
+
+    if row and row[0] == "APPROVED":
+        # Already auto-approved by the poller
+        from services.wallet import get_balance
+        bal = await get_balance(callback.from_user.id)
+        await callback.message.answer(
+            "🎉 <b>Payment Verified!</b>\n\n"
+            f"💳 Your balance: <b>₹{bal:.2f}</b>\n"
+            "✅ Wallet credited automatically.",
+            reply_markup=back_to_main_keyboard(),
+            parse_mode="HTML",
+        )
+        await callback.answer("✅ Payment received!", show_alert=True)
+        return
+
+    # Not yet detected — trigger an immediate poll to check faster
+    try:
+        from services.auto_payment import poll_once
+        await poll_once(callback.bot)
+        # Re-check status after the poll
+        cur = await db.execute("SELECT status FROM deposits WHERE id=?", (deposit_id,))
+        row = await cur.fetchone()
+        if row and row[0] == "APPROVED":
+            from services.wallet import get_balance
+            bal = await get_balance(callback.from_user.id)
+            await callback.message.answer(
+                "🎉 <b>Payment Verified!</b>\n\n"
+                f"💳 Your balance: <b>₹{bal:.2f}</b>\n"
+                "✅ Wallet credited automatically.",
+                reply_markup=back_to_main_keyboard(),
+                parse_mode="HTML",
+            )
+            await callback.answer("✅ Payment received!", show_alert=True)
+            return
+    except Exception as e:
+        logger.warning("auto_check poll failed: %s", e)
+
+    await callback.answer("⏳ Not detected yet. Wait ~1 min and try again.", show_alert=True)
+    await callback.message.answer(
+        format_auto_deposit_waiting(),
+        reply_markup=auto_deposit_keyboard(deposit_id),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "deposit_manual_fallback")
+async def deposit_manual_fallback(callback: CallbackQuery, state: FSMContext):
+    """User's auto-pay didn't work — fall back to screenshot approval."""
+    data = await state.get_data()
+    amount = data.get("deposit_amount", 0)
+    if amount <= 0:
+        await callback.answer("Please start deposit again.", show_alert=True)
+        return
+    await state.set_state(DepositStates.waiting_screenshot)
+    await callback.message.answer(
+        "📸 <b>Manual Verification</b>\n\n"
+        "Send a clear screenshot of your payment.\n"
+        "An admin will verify and approve it.",
+        reply_markup=deposit_cancel_keyboard(),
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
 @router.message(DepositStates.waiting_amount)
 async def deposit_receive_amount(message: Message, state: FSMContext):
     """Receive and validate deposit amount, then show QR + deposit details."""
@@ -119,16 +196,46 @@ async def deposit_receive_amount(message: Message, state: FSMContext):
         )
         return
 
-    # Save amount and move to screenshot state
+    from urllib.parse import quote
+
+    # ===== AUTO-VERIFY MODE (Gmail configured) =====
+    if AUTO_VERIFY_ENABLED:
+        # Reserve a unique amount (base + unique paise) for matching
+        unique_amount = await reserve_unique_amount(amount)
+
+        # Create a PENDING deposit row immediately with the unique amount
+        db = await get_db()
+        cursor = await db.execute(
+            """INSERT INTO deposits (user_id, amount, unique_amount, status, verify_method)
+               VALUES (?, ?, ?, 'PENDING', 'auto')""",
+            (message.from_user.id, amount, unique_amount),
+        )
+        await db.commit()
+        deposit_id = cursor.lastrowid
+
+        # Store amount in state and clear FSM (poller handles the rest)
+        await state.clear()
+        await state.update_data(deposit_amount=amount, deposit_id=deposit_id)
+
+        # QR with the EXACT unique amount pre-filled
+        upi_link = f"upi://pay?pa={quote(UPI_ID)}&pn={quote(UPI_NAME)}&am={unique_amount:.2f}&cu=INR"
+        qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={quote(upi_link)}"
+
+        await message.answer_photo(
+            photo=URLInputFile(qr_url),
+            caption=format_auto_deposit_prompt(amount, unique_amount, UPI_ID, UPI_NAME),
+            reply_markup=auto_deposit_keyboard(deposit_id),
+            parse_mode="HTML",
+        )
+        return
+
+    # ===== MANUAL MODE (no Gmail) — screenshot flow =====
     await state.update_data(deposit_amount=amount)
     await state.set_state(DepositStates.waiting_screenshot)
 
-    # Generate UPI QR with amount pre-filled (properly URL encoded)
-    from urllib.parse import quote
     upi_link = f"upi://pay?pa={quote(UPI_ID)}&pn={quote(UPI_NAME)}&am={amount:.2f}&cu=INR"
     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={quote(upi_link)}"
 
-    # Send QR photo with deposit details as caption
     await message.answer_photo(
         photo=URLInputFile(qr_url),
         caption=format_deposit_screenshot_prompt(amount),

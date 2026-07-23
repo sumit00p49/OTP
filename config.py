@@ -79,6 +79,25 @@ DB_PATH = os.getenv("DB_PATH", "bot_database.db")
 # If not set, falls back to local products.json file
 MONGO_URI = os.getenv("MONGO_URI", "")
 
+# ==================== Auto Payment Verification (Gmail) ====================
+# The bot reads the owner's Gmail (where FamApp/UPI payment emails arrive)
+# and auto-verifies deposits by matching the exact received amount.
+#
+# SETUP:
+#   1. Enable 2-Step Verification on your Google account
+#   2. Create an App Password: Google Account -> Security -> App Passwords
+#   3. Put your Gmail + the 16-char app password below in .env
+GMAIL_ADDRESS = os.getenv("GMAIL_ADDRESS", "")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
+# Email sender that payment notifications come from (FamApp/FamX)
+PAYMENT_EMAIL_SENDER = os.getenv("PAYMENT_EMAIL_SENDER", "no-reply@famapp.in")
+# How often (seconds) to poll Gmail for new payment emails
+PAYMENT_POLL_INTERVAL = int(os.getenv("PAYMENT_POLL_INTERVAL", "30"))
+# Minutes a pending deposit stays valid for auto-match
+PAYMENT_MATCH_WINDOW_MIN = int(os.getenv("PAYMENT_MATCH_WINDOW_MIN", "30"))
+# Auto-verify is ON only when both Gmail credentials are provided
+AUTO_VERIFY_ENABLED = bool(GMAIL_ADDRESS and GMAIL_APP_PASSWORD)
+
 
 def get_product(code: str) -> dict:
     """Get product config by country code."""

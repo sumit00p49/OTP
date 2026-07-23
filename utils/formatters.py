@@ -120,38 +120,46 @@ def format_purchase_processing() -> str:
 
 
 def format_account_details(order_id: str, account_data: dict, price: float) -> str:
-    """Format delivered account details with login instructions."""
+    """Format delivered account details with login instructions + rich emojis."""
     phone = account_data.get("phone", "N/A")
     password = account_data.get("password", "")
     username = account_data.get("username", "")
+    email = account_data.get("email", "")
+    login_code = account_data.get("login_code", "")
     otp_available = account_data.get("otp_available", False)
 
     msg = (
-        "✅ <b>Purchase Successful!</b>\n"
-        "\n"
-        f"📱 Phone: <code>{phone}</code>\n"
+        "🎉✨ <b>Purchase Successful!</b> ✨🎉\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🆔 <b>Order:</b> <code>{order_id}</code>\n"
+        f"📲 <b>Phone:</b> <code>{phone}</code>\n"
     )
     if username:
-        msg += f"👤 Username: @{username}\n"
+        msg += f"👤 <b>Username:</b> @{username}\n"
+    if email:
+        msg += f"📧 <b>Email:</b> <code>{email}</code>\n"
     if password:
-        msg += f"🔐 2FA Password: <code>{password}</code>\n"
+        msg += f"🔐 <b>2FA Password:</b> <code>{password}</code>\n"
+    if login_code:
+        msg += f"🔢 <b>Login Code:</b> <code>{login_code}</code>\n"
 
     msg += (
         "\n"
-        "🔑 <b>Login Instructions:</b>\n"
-        "1. Open Telegram Desktop/Mobile\n"
-        "2. Enter the phone number above\n"
-        "3. Click 'Get OTP' below for verification code\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "🔑 <b>How to Login:</b>\n"
+        "1️⃣ Open Telegram Desktop/Mobile\n"
+        "2️⃣ Enter the phone number above\n"
+        "3️⃣ Tap <b>🔑 Get OTP</b> below for the code\n"
         "\n"
-        "🔒 <b>Security:</b> Full account control!\n"
-        "🛡️ <b>Security Status:</b> All other sessions terminated!"
+        "🛡️ <b>Status:</b> ✅ Clean • No Spam Block\n"
+        "💚 <b>Full account control is yours!</b>"
     )
 
     if not otp_available:
         msg += (
             "\n\n"
-            "⚠️ <i>Note: This account may require TData login.\n"
-            "If OTP doesn't work, contact support.</i>"
+            "⚠️ <i>Note: If OTP doesn't arrive, this account\n"
+            "may need TData login — contact support.</i>"
         )
 
     return msg
@@ -256,6 +264,38 @@ def format_deposit_pending() -> str:
         "ᴛʜᴀɴᴋs ғᴏʀ ᴅᴇᴘᴏsɪᴛ ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ .\n"
         "\n"
         "ᴏᴜʀ ᴀᴅᴍɪɴs ᴡɪʟʟ sᴏᴏɴ ᴄʜᴇᴄᴋ ᴀɴᴅ ᴀᴘᴘʀᴏᴠᴇ."
+    )
+
+
+def format_auto_deposit_prompt(base_amount: float, unique_amount: float, upi_id: str, upi_name: str) -> str:
+    """Auto-verify deposit: user must pay the EXACT unique amount."""
+    return (
+        "⚡ <b>Instant Auto-Verify Deposit</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "❗️ <b>Pay this EXACT amount:</b>\n"
+        f"💵 <b>₹{unique_amount:.2f}</b>\n"
+        "<i>(the paise are your unique code — pay the exact figure)</i>\n\n"
+        f"📲 <b>UPI ID:</b> <code>{upi_id}</code>\n"
+        f"👤 <b>Name:</b> {upi_name}\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "🤖 <b>Auto-verify is ON!</b>\n"
+        f"Once you pay ₹{unique_amount:.2f}, your wallet is credited\n"
+        f"with <b>₹{base_amount:.0f}</b> automatically within ~1 minute.\n\n"
+        "⏱️ Valid for 30 minutes. Pay the exact amount or it won't match."
+    )
+
+
+def format_auto_deposit_waiting() -> str:
+    """Shown when user taps 'I've Paid' but payment not detected yet."""
+    return (
+        "⏳ <b>Waiting for payment...</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "We haven't detected your payment yet.\n\n"
+        "💡 <b>Please make sure:</b>\n"
+        "• You paid the <b>EXACT</b> amount (with paise)\n"
+        "• Payment is complete (not pending)\n\n"
+        "🔄 Wait ~1 minute and tap <b>Check Again</b>.\n"
+        "It auto-credits as soon as it's detected."
     )
 
 
