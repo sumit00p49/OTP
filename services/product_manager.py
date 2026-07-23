@@ -4,12 +4,13 @@ Uses MongoDB for persistent storage (products survive restarts/redeploys).
 Fallback to local JSON file if MongoDB is not configured.
 
 DEFAULT FILTERS (auto-applied to ALL countries):
-  - nsb=1 (No Spam Block - critical for OTP)
-  - telegram_password=0 (No 2FA password)
-  - eg=1 (Has Gmail/Email linked)
+  - nsb=1        (No Spam Block)
+  - spam=no      (No Spam Block — confirmed from lzt.market URL)
+  - email=yes    (Has Gmail/Email linked)
 
-Admin only needs to add country code, name, flag, price, max_lzt.
-Filters are applied AUTOMATICALLY.
+Every country (India, Bangladesh, Indonesia, Myanmar, and any you add)
+gets these SAME good-account filters automatically. Just add the country
+code/name/flag/price/max_lzt to products.json — filters apply on their own.
 """
 
 import json
@@ -318,7 +319,7 @@ def get_effective_filters(product: dict) -> dict:
     Get the EFFECTIVE filters for a product = GLOBAL defaults + product-specific overrides.
     
     This is what actually gets sent to the LZT API.
-    Global defaults: nsb=1, telegram_password=0, eg=1
+    Global defaults: nsb=1, spam=no, email=yes (applied to EVERY country).
     Product can ADD extra filters (like origin[]) but cannot disable globals unless explicitly overridden.
     """
     # Start with global defaults
