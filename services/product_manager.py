@@ -37,7 +37,11 @@ _mongo_client = None
 _mongo_db = None
 _use_mongo = False
 
-PRODUCTS_FILE = "products.json"
+# ABSOLUTE path to products.json (project root) — so it's ALWAYS the same file
+# no matter which directory the bot is started from. This prevents the
+# "products.json keeps resetting" bug caused by relative-path lookups.
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PRODUCTS_FILE = os.path.join(_PROJECT_ROOT, "products.json")
 
 # Default products if products.json doesn't exist.
 # NOTE: products.json is gitignored — edit it directly on your server.
@@ -109,9 +113,18 @@ def _load_products_json() -> list:
     if os.path.exists(PRODUCTS_FILE):
         try:
             with open(PRODUCTS_FILE, "r") as f:
-                return json.load(f)
+                data = json.load(f)
+            if isinstance(data, list) and data:
+                return data
+            logger.error("products.json is empty/invalid — keeping file, using defaults in memory")
         except (json.JSONDecodeError, IOError) as e:
-            logger.error("Failed to load products.json: %s", e)
+            # DO NOT overwrite the file — user may have a typo they can fix.
+            logger.error(
+                "products.json has a JSON error (%s). Fix the file — NOT overwriting it. "
+                "Using defaults in memory for now.", e,
+            )
+        # Return defaults in memory only; never overwrite the existing file here
+        return DEFAULT_PRODUCTS.copy()
     return DEFAULT_PRODUCTS.copy()
 
 
