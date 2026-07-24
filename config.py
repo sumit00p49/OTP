@@ -87,8 +87,10 @@ MONGO_URI = os.getenv("MONGO_URI", "")
 #   1. Enable 2-Step Verification on your Google account
 #   2. Create an App Password: Google Account -> Security -> App Passwords
 #   3. Put your Gmail + the 16-char app password below in .env
-GMAIL_ADDRESS = os.getenv("GMAIL_ADDRESS", "")
-GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
+GMAIL_ADDRESS = os.getenv("GMAIL_ADDRESS", "").strip()
+# App passwords are shown as 4 groups (e.g. "abcd efgh ijkl mnop").
+# Strip spaces so it works whether pasted with or without spaces.
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "").replace(" ", "").strip()
 # Email sender that payment notifications come from (FamApp/FamX)
 PAYMENT_EMAIL_SENDER = os.getenv("PAYMENT_EMAIL_SENDER", "no-reply@famapp.in")
 # How often (seconds) to poll Gmail for new payment emails
