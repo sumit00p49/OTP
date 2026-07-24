@@ -17,6 +17,6 @@ bot_database.db*
 # Logs
 *.log
 
-
-# Products config — edit directly on server, don't let git pull overwrite it
-products.json
+# NOTE: products.json IS tracked in git — manage your countries by editing
+# it here (or on GitHub). On the server, `git pull` will bring your changes.
+# The bot never overwrites it (absolute path + no auto-reset).
