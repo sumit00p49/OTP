@@ -4,7 +4,15 @@
     "name": "India",
     "flag": "🇮🇳",
     "price": 26,
-    "max_lzt": 0.12,
+    "max_lzt": 0.20,
+    "filters": {}
+  },
+  {
+    "code": "US",
+    "name": "United States",
+    "flag": "🇺🇸",
+    "price": 50,
+    "max_lzt": 0.30,
     "filters": {}
   },
   {
@@ -12,7 +20,7 @@
     "name": "Bangladesh",
     "flag": "🇧🇩",
     "price": 20,
-    "max_lzt": 0.12,
+    "max_lzt": 0.18,
     "filters": {}
   },
   {
@@ -20,7 +28,7 @@
     "name": "Indonesia",
     "flag": "🇮🇩",
     "price": 25,
-    "max_lzt": 0.12,
+    "max_lzt": 0.18,
     "filters": {}
   },
   {
@@ -28,7 +36,7 @@
     "name": "Myanmar",
     "flag": "🇲🇲",
     "price": 22,
-    "max_lzt": 0.12,
+    "max_lzt": 0.18,
     "filters": {}
   }
 ]
