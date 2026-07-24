@@ -11,8 +11,8 @@
     "code": "US",
     "name": "UNITED STATES",
     "flag": "🇺🇸",
-    "price": 50,
-    "max_lzt": 0.25,
+    "price": 40,
+    "max_lzt": 0.20,
     "filters": {}
   },
   {
