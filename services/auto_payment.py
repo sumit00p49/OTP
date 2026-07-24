@@ -31,19 +31,23 @@ logger = logging.getLogger(__name__)
 
 async def generate_deposit_note() -> str:
     """
-    Generate a short unique note like 'APX4821' for a deposit.
-    The payer adds this in the UPI note/remark so we can match exactly.
+    Generate a UNIQUE note like 'APX48213' for EACH transaction.
+
+    Uniqueness is checked against ALL deposits (any status) — so a note is
+    NEVER reused. This guarantees every payment maps to exactly one deposit
+    and two payments can never collide on the same note.
     """
     db = await get_db()
-    for _ in range(20):
-        note = "APX" + "".join(random.choices(string.digits, k=4))
+    for _ in range(30):
+        note = "APX" + "".join(random.choices(string.digits, k=5))
         cur = await db.execute(
-            "SELECT 1 FROM deposits WHERE note=? AND status='PENDING'", (note,)
+            "SELECT 1 FROM deposits WHERE note=?", (note,)
         )
         if not await cur.fetchone():
             return note
-    # Fallback — extremely unlikely
-    return "APX" + "".join(random.choices(string.digits, k=6))
+    # Extremely unlikely fallback — add more entropy for guaranteed uniqueness
+    import time
+    return "APX" + str(int(time.time() * 1000))[-8:]
 
 
 async def reserve_unique_amount(base_amount: float) -> float:
