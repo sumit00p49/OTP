@@ -109,6 +109,10 @@ async def init_db():
         await db.execute("ALTER TABLE deposits ADD COLUMN verify_method TEXT DEFAULT 'manual'")
     except Exception:
         pass
+    try:
+        await db.execute("ALTER TABLE deposits ADD COLUMN note TEXT DEFAULT ''")
+    except Exception:
+        pass
 
     # Track used UTRs so the same payment can't be claimed twice
     await db.execute("""

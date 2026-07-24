@@ -92,9 +92,9 @@ GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 # Email sender that payment notifications come from (FamApp/FamX)
 PAYMENT_EMAIL_SENDER = os.getenv("PAYMENT_EMAIL_SENDER", "no-reply@famapp.in")
 # How often (seconds) to poll Gmail for new payment emails
-PAYMENT_POLL_INTERVAL = int(os.getenv("PAYMENT_POLL_INTERVAL", "30"))
-# Minutes a pending deposit stays valid for auto-match
-PAYMENT_MATCH_WINDOW_MIN = int(os.getenv("PAYMENT_MATCH_WINDOW_MIN", "30"))
+PAYMENT_POLL_INTERVAL = int(os.getenv("PAYMENT_POLL_INTERVAL", "20"))
+# Minutes a pending deposit stays valid for auto-match (user pays within this window)
+PAYMENT_MATCH_WINDOW_MIN = int(os.getenv("PAYMENT_MATCH_WINDOW_MIN", "10"))
 # Auto-verify is ON only when both Gmail credentials are provided
 AUTO_VERIFY_ENABLED = bool(GMAIL_ADDRESS and GMAIL_APP_PASSWORD)
 

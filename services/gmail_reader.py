@@ -125,6 +125,7 @@ def parse_payment_email(subject: str, body: str) -> dict | None:
         "utr": utr,
         "sender": sender,
         "txn_id": txn_id,
+        "raw": text,  # full email text — used for note matching
     }
 
 

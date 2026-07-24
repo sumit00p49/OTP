@@ -29,7 +29,7 @@ from utils.formatters import (
     format_auto_deposit_waiting,
 )
 from database import get_db
-from services.auto_payment import reserve_unique_amount
+from services.auto_payment import generate_deposit_note
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -200,30 +200,32 @@ async def deposit_receive_amount(message: Message, state: FSMContext):
 
     # ===== AUTO-VERIFY MODE (Gmail configured) =====
     if AUTO_VERIFY_ENABLED:
-        # Reserve a unique amount (base + unique paise) for matching
-        unique_amount = await reserve_unique_amount(amount)
+        # Generate a short note the payer must add (no extra paise!)
+        note = await generate_deposit_note()
 
-        # Create a PENDING deposit row immediately with the unique amount
+        # Create a PENDING deposit row with exact amount + note
         db = await get_db()
         cursor = await db.execute(
-            """INSERT INTO deposits (user_id, amount, unique_amount, status, verify_method)
+            """INSERT INTO deposits (user_id, amount, note, status, verify_method)
                VALUES (?, ?, ?, 'PENDING', 'auto')""",
-            (message.from_user.id, amount, unique_amount),
+            (message.from_user.id, amount, note),
         )
         await db.commit()
         deposit_id = cursor.lastrowid
 
-        # Store amount in state and clear FSM (poller handles the rest)
         await state.clear()
         await state.update_data(deposit_amount=amount, deposit_id=deposit_id)
 
-        # QR with the EXACT unique amount pre-filled
-        upi_link = f"upi://pay?pa={quote(UPI_ID)}&pn={quote(UPI_NAME)}&am={unique_amount:.2f}&cu=INR"
+        # QR with EXACT amount + note (tn = transaction note)
+        upi_link = (
+            f"upi://pay?pa={quote(UPI_ID)}&pn={quote(UPI_NAME)}"
+            f"&am={amount:.2f}&cu=INR&tn={quote(note)}"
+        )
         qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={quote(upi_link)}"
 
         await message.answer_photo(
             photo=URLInputFile(qr_url),
-            caption=format_auto_deposit_prompt(amount, unique_amount, UPI_ID, UPI_NAME),
+            caption=format_auto_deposit_prompt(amount, note, UPI_ID, UPI_NAME),
             reply_markup=auto_deposit_keyboard(deposit_id),
             parse_mode="HTML",
         )

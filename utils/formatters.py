@@ -267,21 +267,22 @@ def format_deposit_pending() -> str:
     )
 
 
-def format_auto_deposit_prompt(base_amount: float, unique_amount: float, upi_id: str, upi_name: str) -> str:
-    """Auto-verify deposit: user must pay the EXACT unique amount."""
+def format_auto_deposit_prompt(base_amount: float, note: str, upi_id: str, upi_name: str) -> str:
+    """Auto-verify deposit: pay exact amount + add the note (no extra paise)."""
     return (
         "⚡ <b>Instant Auto-Verify Deposit</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "❗️ <b>Pay this EXACT amount:</b>\n"
-        f"💵 <b>₹{unique_amount:.2f}</b>\n"
-        "<i>(the paise are your unique code — pay the exact figure)</i>\n\n"
+        f"💵 <b>Amount:</b> ₹{base_amount:.0f}\n"
         f"📲 <b>UPI ID:</b> <code>{upi_id}</code>\n"
         f"👤 <b>Name:</b> {upi_name}\n\n"
+        "📝 <b>IMPORTANT — Add this NOTE while paying:</b>\n"
+        f"➡️ <code>{note}</code>\n"
+        "<i>(type it in the 'note/remark/message' box in your UPI app)</i>\n\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
         "🤖 <b>Auto-verify is ON!</b>\n"
-        f"Once you pay ₹{unique_amount:.2f}, your wallet is credited\n"
-        f"with <b>₹{base_amount:.0f}</b> automatically within ~1 minute.\n\n"
-        "⏱️ Valid for 30 minutes. Pay the exact amount or it won't match."
+        f"Pay ₹{base_amount:.0f} with the note above — your wallet is\n"
+        "credited automatically within ~1 minute.\n\n"
+        "⏱️ Pay within 10 minutes."
     )
 
 
