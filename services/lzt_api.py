@@ -200,6 +200,32 @@ class LZTMarketAPI:
             logger.warning("Stock count failed for %s: %s", country, e)
             return 0
 
+    async def get_stock_debug(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> dict:
+        """
+        Diagnostic: return the EXACT params sent + the raw total the API reports,
+        so the admin can compare the bot's query against the LZT store view.
+        """
+        country = _fix_country_code(country)
+        params = {"country[]": country, "order_by": "price_to_up"}
+        if pmax is not None:
+            params["pmax"] = str(pmax)
+        if extra_filters and isinstance(extra_filters, dict):
+            for key, value in extra_filters.items():
+                params[key] = value if isinstance(value, (int, float)) else str(value)
+
+        info = {"params": dict(params), "total": 0, "items_on_page": 0, "error": ""}
+        try:
+            result = await self._request("GET", "/telegram", params=params)
+            total = result.get("totalItems", result.get("total_items", 0))
+            items = result.get("items", [])
+            if isinstance(items, dict):
+                items = list(items.values())
+            info["items_on_page"] = len(items) if isinstance(items, list) else 0
+            info["total"] = int(total) if total else info["items_on_page"]
+        except Exception as e:
+            info["error"] = str(e)
+        return info
+
     async def buy(self, item_id, price: float = None, currency: str = None) -> dict:
         """POST /{item_id}/fast-buy - atomic purchase with optional price guard."""
         data = {}

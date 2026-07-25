@@ -68,9 +68,10 @@ async def on_startup(bot: Bot):
     await init_db()
     logger.info("Database initialized.")
 
-    # Initialize MongoDB for products (if configured)
-    from services.product_manager import init_product_db
-    await init_product_db()
+    # Initialize products table in SQLite (creates table + seeds/migrates once)
+    from services.product_manager import init_products
+    init_products()
+    logger.info("Products loaded from database.")
 
     # Start auto-payment verification poller (if Gmail configured)
     from config import AUTO_VERIFY_ENABLED

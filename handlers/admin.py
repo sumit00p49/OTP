@@ -253,8 +253,39 @@ def _pm_menu_keyboard():
     b.row(InlineKeyboardButton(text="💵 Edit Price", callback_data="pm_editprice"),
           InlineKeyboardButton(text="💲 Edit Max LZT", callback_data="pm_editmax"))
     b.row(InlineKeyboardButton(text="🗑️ Remove Country", callback_data="pm_remove"))
+    b.row(InlineKeyboardButton(text="🔍 Test Stock (debug)", callback_data="pm_teststock"))
     b.row(InlineKeyboardButton(text="⬅️ Back to Admin", callback_data="admin_panel"))
     return b.as_markup()
+
+
+@router.callback_query(F.data == "pm_teststock")
+async def pm_teststock(callback: CallbackQuery):
+    """Show the EXACT filters + total the LZT API reports for each country,
+    so you can compare the bot's query against the store view."""
+    if callback.from_user.id not in ADMIN_IDS: return
+    await callback.answer("🔍 Checking LZT...")
+    from services.lzt_api import lzt_api
+    from services.product_manager import get_effective_filters
+
+    products = get_all_products()
+    msg = "🔍 <b>Stock Debug (live from LZT)</b>\n━━━━━━━━━━━━━━━━━━━━━\n\n"
+    for p in products:
+        eff = get_effective_filters(p)
+        info = await lzt_api.get_stock_debug(
+            country=p["code"], pmax=p.get("max_lzt"), extra_filters=eff,
+        )
+        param_str = "&".join(f"{k}={v}" for k, v in info["params"].items())
+        msg += f"{p.get('flag','')} <b>{p['name']}</b> (max ${p.get('max_lzt',0):.2f})\n"
+        if info["error"]:
+            msg += f"   ⚠️ Error: {info['error'][:60]}\n"
+        else:
+            msg += f"   📊 Total: <b>{info['total']}</b> | page: {info['items_on_page']}\n"
+        msg += f"   <code>{param_str}</code>\n\n"
+        import asyncio
+        await asyncio.sleep(0.4)
+
+    msg += "━━━━━━━━━━━━━━━━━━━━━\n💡 Compare 'Total' with the same filter on lzt.market."
+    await callback.message.edit_text(msg, reply_markup=admin_back_keyboard(), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "pm_menu")

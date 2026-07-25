@@ -46,5 +46,13 @@
     "price": 30,
     "max_lzt": 0.18,
     "filters": {}
+  },
+  {
+    "code": "PK",
+    "name": "Pakistan",
+    "flag": "🇵🇰",
+    "price": 30,
+    "max_lzt": 0.18,
+    "filters": {}
   }
 ]
