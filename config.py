@@ -87,10 +87,19 @@ MONGO_URI = os.getenv("MONGO_URI", "")
 #   1. Enable 2-Step Verification on your Google account
 #   2. Create an App Password: Google Account -> Security -> App Passwords
 #   3. Put your Gmail + the 16-char app password below in .env
-GMAIL_ADDRESS = os.getenv("GMAIL_ADDRESS", "").strip()
+def _clean_secret(value: str) -> str:
+    """Remove ALL whitespace incl. non-breaking spaces (\\xa0) that sneak in
+    when copy-pasting app passwords. imaplib encodes to ASCII and \\xa0 breaks it."""
+    if not value:
+        return ""
+    # Remove every kind of whitespace character (space, tab, \xa0, \u200b, etc.)
+    return "".join(value.split()).replace("\xa0", "").replace("\u200b", "")
+
+
+GMAIL_ADDRESS = _clean_secret(os.getenv("GMAIL_ADDRESS", ""))
 # App passwords are shown as 4 groups (e.g. "abcd efgh ijkl mnop").
-# Strip spaces so it works whether pasted with or without spaces.
-GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "").replace(" ", "").strip()
+# Strip ALL whitespace (incl. \xa0 non-breaking space from copy-paste) so login works.
+GMAIL_APP_PASSWORD = _clean_secret(os.getenv("GMAIL_APP_PASSWORD", ""))
 # Email sender that payment notifications come from (FamApp/FamX)
 PAYMENT_EMAIL_SENDER = os.getenv("PAYMENT_EMAIL_SENDER", "no-reply@famapp.in")
 # How often (seconds) to poll Gmail for new payment emails
