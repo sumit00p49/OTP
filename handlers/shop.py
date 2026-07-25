@@ -80,12 +80,11 @@ async def get_live_stock(products: list) -> dict:
             async with sem:
                 try:
                     effective = get_effective_filters(p)
-                    # Count ALL available accounts with the filters (NO price cap)
-                    # so the number matches what you see on the LZT store.
-                    # The price cap (max_lzt) is only applied at PURCHASE time.
+                    # Count only accounts WITHIN max_lzt (the real buyable stock).
+                    # No fake/inflated numbers — what's shown can actually be bought.
                     count = await lzt_api.get_stock_count(
                         country=code,
-                        pmax=None,
+                        pmax=p.get("max_lzt"),
                         extra_filters=effective,
                     )
                 except Exception as e:
