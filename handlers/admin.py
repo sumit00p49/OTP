@@ -15,6 +15,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from config import ADMIN_IDS
 from services.wallet import credit, get_balance
+from services.product_manager import (
+    get_all_products, get_product, add_product, remove_product,
+)
 from utils.formatters import format_deposit_approved, format_deposit_rejected
 from database import get_db
 
@@ -30,6 +33,12 @@ class AdminStates(StatesGroup):
     waiting_user_lookup = State()
     waiting_broadcast = State()
     waiting_ban_user = State()
+    # Add-country flow
+    pc_code = State()
+    pc_name = State()
+    pc_flag = State()
+    pc_price = State()
+    pc_maxlzt = State()
 
 
 
@@ -43,6 +52,7 @@ def admin_panel_keyboard():
           InlineKeyboardButton(text="🔍 User Lookup", callback_data="admin_user_lookup"))
     b.row(InlineKeyboardButton(text="🚫 Ban User", callback_data="admin_ban"),
           InlineKeyboardButton(text="✅ Unban User", callback_data="admin_unban"))
+    b.row(InlineKeyboardButton(text="🌍 Manage Countries", callback_data="pm_menu"))
     b.row(InlineKeyboardButton(text="👥 Users Dashboard", callback_data="admin_users_dashboard"))
     b.row(InlineKeyboardButton(text="📢 Broadcast", callback_data="admin_broadcast"))
     return b.as_markup()
@@ -228,3 +238,149 @@ async def broadcast_send(message: Message, state: FSMContext):
     await message.answer(f"📢 Sent to {sent}/{len(users)} users", reply_markup=admin_back_keyboard(), parse_mode="HTML")
 
 
+
+
+
+# ==================== MANAGE COUNTRIES (no JSON editing!) ====================
+
+def _pm_menu_keyboard():
+    b = InlineKeyboardBuilder()
+    b.row(InlineKeyboardButton(text="➕ Add Country", callback_data="pm_add"))
+    b.row(InlineKeyboardButton(text="🗑️ Remove Country", callback_data="pm_remove"))
+    b.row(InlineKeyboardButton(text="⬅️ Back to Admin", callback_data="admin_panel"))
+    return b.as_markup()
+
+
+@router.callback_query(F.data == "pm_menu")
+async def pm_menu(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS: return
+    await state.clear()
+    products = get_all_products()
+    msg = "🌍 <b>Manage Countries</b>\n━━━━━━━━━━━━━━━━━━━━━\n\n"
+    if products:
+        for p in products:
+            msg += f"{p.get('flag','')} <b>{p['name']}</b> ({p['code']}) — ₹{p['price']:.0f} | max ${p.get('max_lzt',0):.2f}\n"
+    else:
+        msg += "📭 No countries yet.\n"
+    msg += "\n➕ Add or 🗑️ remove below (no JSON editing needed):"
+    await callback.message.edit_text(msg, reply_markup=_pm_menu_keyboard(), parse_mode="HTML")
+    await callback.answer()
+
+
+# ---- Add Country flow ----
+@router.callback_query(F.data == "pm_add")
+async def pm_add(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS: return
+    await state.set_state(AdminStates.pc_code)
+    await callback.message.edit_text(
+        "➕ <b>Add Country</b>\n\nSend the 2-letter country code:\n"
+        "📌 Examples: <code>US</code> <code>IN</code> <code>BD</code> <code>VN</code> <code>PK</code>",
+        reply_markup=admin_back_keyboard(), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.message(AdminStates.pc_code)
+async def pm_code(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS: return
+    code = (message.text or "").strip().upper()
+    if len(code) != 2 or not code.isalpha():
+        return await message.answer("⚠️ Send exactly 2 letters (e.g. US)")
+    if get_product(code):
+        return await message.answer(f"⚠️ {code} already exists! Remove it first or pick another.")
+    await state.update_data(pc_code=code)
+    await state.set_state(AdminStates.pc_name)
+    await message.answer(f"✅ Code: <b>{code}</b>\n\nNow send the country NAME (e.g. Vietnam):", parse_mode="HTML")
+
+
+@router.message(AdminStates.pc_name)
+async def pm_name(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS: return
+    name = (message.text or "").strip()[:30]
+    if not name:
+        return await message.answer("⚠️ Send a valid name.")
+    await state.update_data(pc_name=name)
+    await state.set_state(AdminStates.pc_flag)
+    await message.answer(f"✅ Name: <b>{name}</b>\n\nNow send the FLAG emoji (e.g. 🇻🇳):", parse_mode="HTML")
+
+
+@router.message(AdminStates.pc_flag)
+async def pm_flag(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS: return
+    flag = (message.text or "").strip()[:8]
+    await state.update_data(pc_flag=flag)
+    await state.set_state(AdminStates.pc_price)
+    await message.answer("✅ Now send the PRICE in ₹ (what the user pays):\n📌 Example: <code>30</code>", parse_mode="HTML")
+
+
+@router.message(AdminStates.pc_price)
+async def pm_price(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS: return
+    try:
+        price = float((message.text or "").strip().replace("₹", ""))
+    except (ValueError, TypeError):
+        return await message.answer("⚠️ Send a valid number (e.g. 30)")
+    await state.update_data(pc_price=price)
+    await state.set_state(AdminStates.pc_maxlzt)
+    await message.answer(
+        f"✅ Price: ₹{price:.0f}\n\nNow send the MAX USD to pay on LZT:\n"
+        "📌 Example: <code>0.18</code>\n"
+        "<i>(higher = more stock; keep below your selling price)</i>",
+        parse_mode="HTML")
+
+
+@router.message(AdminStates.pc_maxlzt)
+async def pm_maxlzt(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS: return
+    try:
+        max_lzt = float((message.text or "").strip().replace("$", ""))
+    except (ValueError, TypeError):
+        return await message.answer("⚠️ Send a valid number (e.g. 0.18)")
+    data = await state.get_data()
+    ok = add_product(
+        data["pc_code"], data["pc_name"], data.get("pc_flag", "🌍"),
+        data["pc_price"], max_lzt, {},
+    )
+    await state.clear()
+    if ok:
+        await message.answer(
+            f"✅ <b>Country Added!</b>\n\n"
+            f"{data.get('pc_flag','🌍')} <b>{data['pc_name']}</b> ({data['pc_code']})\n"
+            f"💵 ₹{data['pc_price']:.0f} | max ${max_lzt:.2f}\n"
+            f"🔧 Filters: nsb=1, spam=no, email=yes (auto)\n\n"
+            "It shows in the shop right away. No restart needed!",
+            reply_markup=admin_back_keyboard(), parse_mode="HTML")
+    else:
+        await message.answer("❌ Failed (already exists?)", reply_markup=admin_back_keyboard(), parse_mode="HTML")
+
+
+# ---- Remove Country flow ----
+@router.callback_query(F.data == "pm_remove")
+async def pm_remove_menu(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS: return
+    b = InlineKeyboardBuilder()
+    for p in get_all_products():
+        b.row(InlineKeyboardButton(
+            text=f"🗑️ {p.get('flag','')} {p['name']} ({p['code']})",
+            callback_data=f"pm_del:{p['code']}",
+        ))
+    b.row(InlineKeyboardButton(text="⬅️ Back", callback_data="pm_menu"))
+    await callback.message.edit_text("🗑️ <b>Tap a country to remove it:</b>", reply_markup=b.as_markup(), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pm_del:"))
+async def pm_del(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS: return
+    code = callback.data.split(":")[1]
+    removed = remove_product(code)
+    await callback.answer("🗑️ Removed!" if removed else "Not found", show_alert=True)
+    # Re-render the country list
+    products = get_all_products()
+    msg = "🌍 <b>Manage Countries</b>\n━━━━━━━━━━━━━━━━━━━━━\n\n"
+    if products:
+        for p in products:
+            msg += f"{p.get('flag','')} <b>{p['name']}</b> ({p['code']}) — ₹{p['price']:.0f} | max ${p.get('max_lzt',0):.2f}\n"
+    else:
+        msg += "📭 No countries yet.\n"
+    msg += "\n➕ Add or 🗑️ remove below (no JSON editing needed):"
+    await callback.message.edit_text(msg, reply_markup=_pm_menu_keyboard(), parse_mode="HTML")

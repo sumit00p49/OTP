@@ -38,5 +38,13 @@
     "price": 22,
     "max_lzt": 0.18,
     "filters": {}
+  },
+  {
+    "code": "VN",
+    "name": "Vietnam",
+    "flag": "🇻🇳",
+    "price": 30,
+    "max_lzt": 0.18,
+    "filters": {}
   }
 ]
