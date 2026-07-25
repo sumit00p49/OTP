@@ -142,6 +142,7 @@ class LZTMarketAPI:
         params = {
             "country[]": country,
             "order_by": "price_to_up",
+            "currency": "usd",  # CRITICAL: makes pmax compare in USD (matches store $ prices)
         }
         if pmax is not None:
             params["pmax"] = str(pmax)
@@ -175,6 +176,7 @@ class LZTMarketAPI:
         params = {
             "country[]": country,
             "order_by": "price_to_up",
+            "currency": "usd",  # CRITICAL: pmax compared in USD (matches store $ prices)
         }
         if pmax is not None:
             params["pmax"] = str(pmax)
@@ -202,26 +204,39 @@ class LZTMarketAPI:
 
     async def get_stock_debug(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> dict:
         """
-        Diagnostic: return the EXACT params sent + the raw total the API reports,
-        so the admin can compare the bot's query against the LZT store view.
+        Deep diagnostic. Runs TWO queries (both currency=usd):
+          A) WITHOUT price cap -> total available + cheapest 5 prices
+          B) WITH pmax cap      -> total buyable under the cap
+        This reveals whether low stock is genuine (prices ramp up) or a bug.
         """
         country = _fix_country_code(country)
-        params = {"country[]": country, "order_by": "price_to_up"}
-        if pmax is not None:
-            params["pmax"] = str(pmax)
+        base = {"country[]": country, "order_by": "price_to_up", "currency": "usd"}
         if extra_filters and isinstance(extra_filters, dict):
-            for key, value in extra_filters.items():
-                params[key] = value if isinstance(value, (int, float)) else str(value)
+            for k, v in extra_filters.items():
+                base[k] = v if isinstance(v, (int, float)) else str(v)
 
-        info = {"params": dict(params), "total": 0, "items_on_page": 0, "error": ""}
+        info = {
+            "total_no_cap": 0, "total_capped": 0,
+            "cheapest_prices": [], "pmax": pmax, "error": "",
+        }
         try:
-            result = await self._request("GET", "/telegram", params=params)
-            total = result.get("totalItems", result.get("total_items", 0))
-            items = result.get("items", [])
+            # A) no cap
+            r1 = await self._request("GET", "/telegram", params=dict(base))
+            info["total_no_cap"] = int(r1.get("totalItems", r1.get("total_items", 0)) or 0)
+            items = r1.get("items", [])
             if isinstance(items, dict):
                 items = list(items.values())
-            info["items_on_page"] = len(items) if isinstance(items, list) else 0
-            info["total"] = int(total) if total else info["items_on_page"]
+            if isinstance(items, list):
+                for it in items[:5]:
+                    p = it.get("price") or it.get("priceWithSellerFeeLabel") or "?"
+                    info["cheapest_prices"].append(p)
+
+            # B) capped
+            capped = dict(base)
+            if pmax is not None:
+                capped["pmax"] = str(pmax)
+            r2 = await self._request("GET", "/telegram", params=capped)
+            info["total_capped"] = int(r2.get("totalItems", r2.get("total_items", 0)) or 0)
         except Exception as e:
             info["error"] = str(e)
         return info

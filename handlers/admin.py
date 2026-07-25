@@ -268,23 +268,30 @@ async def pm_teststock(callback: CallbackQuery):
     from services.product_manager import get_effective_filters
 
     products = get_all_products()
-    msg = "🔍 <b>Stock Debug (live from LZT)</b>\n━━━━━━━━━━━━━━━━━━━━━\n\n"
+    msg = "🔍 <b>Stock Debug (currency=USD)</b>\n━━━━━━━━━━━━━━━━━━━━━\n\n"
     for p in products:
         eff = get_effective_filters(p)
         info = await lzt_api.get_stock_debug(
             country=p["code"], pmax=p.get("max_lzt"), extra_filters=eff,
         )
-        param_str = "&".join(f"{k}={v}" for k, v in info["params"].items())
-        msg += f"{p.get('flag','')} <b>{p['name']}</b> (max ${p.get('max_lzt',0):.2f})\n"
+        msg += f"{p.get('flag','')} <b>{p['name']}</b> (cap ${p.get('max_lzt',0):.2f})\n"
         if info["error"]:
-            msg += f"   ⚠️ Error: {info['error'][:60]}\n"
+            msg += f"   ⚠️ {info['error'][:55]}\n\n"
         else:
-            msg += f"   📊 Total: <b>{info['total']}</b> | page: {info['items_on_page']}\n"
-        msg += f"   <code>{param_str}</code>\n\n"
+            prices = ", ".join(f"${x}" for x in info["cheapest_prices"]) or "—"
+            msg += (
+                f"   🏬 All (no cap): <b>{info['total_no_cap']}</b>\n"
+                f"   ✅ Under cap: <b>{info['total_capped']}</b>\n"
+                f"   💵 Cheapest: {prices}\n\n"
+            )
         import asyncio
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(0.5)
 
-    msg += "━━━━━━━━━━━━━━━━━━━━━\n💡 Compare 'Total' with the same filter on lzt.market."
+    msg += (
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 'Cheapest' = actual account prices (USD).\n"
+        "If cheapest prices are above your cap, raise Max LZT."
+    )
     await callback.message.edit_text(msg, reply_markup=admin_back_keyboard(), parse_mode="HTML")
 
 
