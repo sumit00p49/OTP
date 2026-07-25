@@ -17,6 +17,7 @@ from config import ADMIN_IDS
 from services.wallet import credit, get_balance
 from services.product_manager import (
     get_all_products, get_product, add_product, remove_product,
+    update_product_price, update_product_max_lzt,
 )
 from utils.formatters import format_deposit_approved, format_deposit_rejected
 from database import get_db
@@ -39,6 +40,9 @@ class AdminStates(StatesGroup):
     pc_flag = State()
     pc_price = State()
     pc_maxlzt = State()
+    # Edit flows
+    pc_edit_price = State()
+    pc_edit_maxlzt = State()
 
 
 
@@ -246,6 +250,8 @@ async def broadcast_send(message: Message, state: FSMContext):
 def _pm_menu_keyboard():
     b = InlineKeyboardBuilder()
     b.row(InlineKeyboardButton(text="➕ Add Country", callback_data="pm_add"))
+    b.row(InlineKeyboardButton(text="💵 Edit Price", callback_data="pm_editprice"),
+          InlineKeyboardButton(text="💲 Edit Max LZT", callback_data="pm_editmax"))
     b.row(InlineKeyboardButton(text="🗑️ Remove Country", callback_data="pm_remove"))
     b.row(InlineKeyboardButton(text="⬅️ Back to Admin", callback_data="admin_panel"))
     return b.as_markup()
@@ -384,3 +390,101 @@ async def pm_del(callback: CallbackQuery):
         msg += "📭 No countries yet.\n"
     msg += "\n➕ Add or 🗑️ remove below (no JSON editing needed):"
     await callback.message.edit_text(msg, reply_markup=_pm_menu_keyboard(), parse_mode="HTML")
+
+
+
+# ---- Edit Price flow ----
+@router.callback_query(F.data == "pm_editprice")
+async def pm_editprice_menu(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS: return
+    b = InlineKeyboardBuilder()
+    for p in get_all_products():
+        b.row(InlineKeyboardButton(
+            text=f"{p.get('flag','')} {p['name']} — ₹{p['price']:.0f}",
+            callback_data=f"pm_sp:{p['code']}",
+        ))
+    b.row(InlineKeyboardButton(text="⬅️ Back", callback_data="pm_menu"))
+    await callback.message.edit_text("💵 <b>Tap a country to change its ₹ price:</b>", reply_markup=b.as_markup(), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pm_sp:"))
+async def pm_sp(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS: return
+    code = callback.data.split(":")[1]
+    p = get_product(code)
+    if not p:
+        return await callback.answer("Not found", show_alert=True)
+    await state.update_data(edit_code=code)
+    await state.set_state(AdminStates.pc_edit_price)
+    await callback.message.edit_text(
+        f"{p.get('flag','')} <b>{p['name']}</b>\nCurrent price: ₹{p['price']:.0f}\n\n"
+        "Send the NEW price in ₹:\n📌 Example: <code>35</code>",
+        reply_markup=admin_back_keyboard(), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.message(AdminStates.pc_edit_price)
+async def pm_set_price(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS: return
+    try:
+        price = float((message.text or "").strip().replace("₹", ""))
+    except (ValueError, TypeError):
+        return await message.answer("⚠️ Send a valid number (e.g. 35)")
+    data = await state.get_data()
+    code = data.get("edit_code", "")
+    update_product_price(code, price)
+    await state.clear()
+    await message.answer(
+        f"✅ {code} price updated → ₹{price:.0f}\n(Shows in shop right away.)",
+        reply_markup=admin_back_keyboard(), parse_mode="HTML")
+
+
+# ---- Edit Max LZT flow ----
+@router.callback_query(F.data == "pm_editmax")
+async def pm_editmax_menu(callback: CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS: return
+    b = InlineKeyboardBuilder()
+    for p in get_all_products():
+        b.row(InlineKeyboardButton(
+            text=f"{p.get('flag','')} {p['name']} — ${p.get('max_lzt',0):.2f}",
+            callback_data=f"pm_sm:{p['code']}",
+        ))
+    b.row(InlineKeyboardButton(text="⬅️ Back", callback_data="pm_menu"))
+    await callback.message.edit_text(
+        "💲 <b>Tap a country to change its Max LZT (USD)</b>\n"
+        "<i>Higher = more stock. Keep below your selling price.</i>",
+        reply_markup=b.as_markup(), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pm_sm:"))
+async def pm_sm(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS: return
+    code = callback.data.split(":")[1]
+    p = get_product(code)
+    if not p:
+        return await callback.answer("Not found", show_alert=True)
+    await state.update_data(edit_code=code)
+    await state.set_state(AdminStates.pc_edit_maxlzt)
+    await callback.message.edit_text(
+        f"{p.get('flag','')} <b>{p['name']}</b>\nCurrent max LZT: ${p.get('max_lzt',0):.2f}\n\n"
+        "Send the NEW max USD:\n📌 Example: <code>0.20</code>",
+        reply_markup=admin_back_keyboard(), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.message(AdminStates.pc_edit_maxlzt)
+async def pm_set_maxlzt(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS: return
+    try:
+        mx = float((message.text or "").strip().replace("$", ""))
+    except (ValueError, TypeError):
+        return await message.answer("⚠️ Send a valid number (e.g. 0.20)")
+    data = await state.get_data()
+    code = data.get("edit_code", "")
+    update_product_max_lzt(code, mx)
+    await state.clear()
+    await message.answer(
+        f"✅ {code} max LZT updated → ${mx:.2f}\n(More stock if you raised it.)",
+        reply_markup=admin_back_keyboard(), parse_mode="HTML")

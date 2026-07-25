@@ -12,6 +12,7 @@ Stock shown = REAL stock with same filters as purchase (no fake numbers).
 
 import logging
 import asyncio
+import time
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -44,30 +45,58 @@ router = Router()
 
 # ==================== Stock Fetch (LIVE with REAL filters) ====================
 
+# Short-lived stock cache so repeated /start loads are INSTANT.
+# code -> (count, timestamp)
+_stock_cache: dict = {}
+_STOCK_TTL = 90          # seconds a cached count stays fresh
+_STOCK_CONCURRENCY = 3   # how many countries to check at once (balance speed vs rate limit)
+
+
 async def get_live_stock(products: list) -> dict:
     """
-    Fetch stock counts LIVE from API with EXACT same filters used for purchase.
+    Fetch stock counts with a 90s cache + limited concurrency.
 
-    IMPORTANT: Checks are done SEQUENTIALLY (one country at a time) with a
-    small delay. Doing all countries in parallel triggered LZT rate-limits
-    (HTTP 429), which made some countries wrongly show 0 / 'Out of stock'.
+    - Cached counts (fresh within 90s) are returned INSTANTLY (no API call).
+    - Only stale/missing countries are fetched, max 3 at a time (fast, but
+      stays under LZT's rate limit so no country wrongly shows 0).
     """
-    stock = {}
+    now = time.time()
+    stock: dict = {}
+    to_fetch = []
+
     for p in products:
         code = p["code"]
-        try:
-            effective = get_effective_filters(p)
-            count = await lzt_api.get_stock_count(
-                country=code,
-                pmax=p.get("max_lzt"),
-                extra_filters=effective,
-            )
-            stock[code] = count
-        except Exception as e:
-            logger.warning("Stock fetch error for %s: %s", code, e)
-            stock[code] = 0
-        # Tiny delay between calls to stay under the rate limit
-        await asyncio.sleep(0.4)
+        cached = _stock_cache.get(code)
+        if cached and (now - cached[1]) < _STOCK_TTL:
+            stock[code] = cached[0]      # fresh cache hit -> instant
+        else:
+            to_fetch.append(p)
+
+    if to_fetch:
+        sem = asyncio.Semaphore(_STOCK_CONCURRENCY)
+
+        async def _get(p):
+            code = p["code"]
+            async with sem:
+                try:
+                    effective = get_effective_filters(p)
+                    count = await lzt_api.get_stock_count(
+                        country=code,
+                        pmax=p.get("max_lzt"),
+                        extra_filters=effective,
+                    )
+                except Exception as e:
+                    logger.warning("Stock fetch error for %s: %s", code, e)
+                    # Fall back to last known count instead of 0
+                    count = _stock_cache.get(code, (0, 0))[0]
+                _stock_cache[code] = (count, time.time())
+                return code, count
+
+        results = await asyncio.gather(*[_get(p) for p in to_fetch], return_exceptions=True)
+        for r in results:
+            if isinstance(r, tuple):
+                stock[r[0]] = r[1]
+
     return stock
 
 
