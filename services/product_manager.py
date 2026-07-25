@@ -25,14 +25,10 @@ logger = logging.getLogger(__name__)
 # Admin doesn't need to set these manually!
 GLOBAL_DEFAULT_FILTERS = {
     "nsb": 1,             # No spam block
-    "spam": "no",         # No spam block (the essential filter)
-    # NOTE: email=yes was REMOVED from global defaults — it killed stock for
-    # smaller countries (Pakistan etc), because few cheap accounts have email.
-    # These no-spam-block accounts match what you see on lzt.market.
-    #
-    # Want email-linked accounts for a SPECIFIC country? Add "email": "yes"
-    # to that country's "filters" in products.json (or via admin), e.g.:
-    #   { "code": "IN", ..., "filters": {"email": "yes"} }
+    "spam": "no",         # No spam block
+    "email": "yes",       # Email/Gmail linked
+    # These match the user's tested lzt.market filters exactly:
+    # "Spam block: No, Email linked" -> nsb=1 & spam=no & email=yes
     # DO NOT add 'password' param — it breaks the API and returns 0 stock.
 }
 

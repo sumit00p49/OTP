@@ -47,28 +47,28 @@ router = Router()
 async def get_live_stock(products: list) -> dict:
     """
     Fetch stock counts LIVE from API with EXACT same filters used for purchase.
-    This ensures stock number is REAL - no fake counts.
-    """
-    async def _get(p):
-        effective = get_effective_filters(p)
-        return p["code"], await lzt_api.get_stock_count(
-            country=p["code"],
-            pmax=p.get("max_lzt"),
-            extra_filters=effective,
-        )
 
-    try:
-        results = await asyncio.gather(*[_get(p) for p in products], return_exceptions=True)
-        stock = {}
-        for r in results:
-            if isinstance(r, tuple):
-                stock[r[0]] = r[1]
-            elif isinstance(r, Exception):
-                logger.warning("Stock fetch error: %s", r)
-        return stock
-    except Exception as e:
-        logger.error("get_live_stock failed: %s", e)
-        return {}
+    IMPORTANT: Checks are done SEQUENTIALLY (one country at a time) with a
+    small delay. Doing all countries in parallel triggered LZT rate-limits
+    (HTTP 429), which made some countries wrongly show 0 / 'Out of stock'.
+    """
+    stock = {}
+    for p in products:
+        code = p["code"]
+        try:
+            effective = get_effective_filters(p)
+            count = await lzt_api.get_stock_count(
+                country=code,
+                pmax=p.get("max_lzt"),
+                extra_filters=effective,
+            )
+            stock[code] = count
+        except Exception as e:
+            logger.warning("Stock fetch error for %s: %s", code, e)
+            stock[code] = 0
+        # Tiny delay between calls to stay under the rate limit
+        await asyncio.sleep(0.4)
+    return stock
 
 
 @router.callback_query(F.data == "buy_account")
