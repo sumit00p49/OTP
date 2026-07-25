@@ -55,12 +55,4 @@
     "max_lzt": 0.18,
     "filters": {}
   }
-
-{
-  "code": "ID",
-  "name": "INDONESIA",
-  "flag": "🇮🇩",
-  "price": 24,
-  "max_lzt": 0.12,
-  "filters": {}
-}
+]
