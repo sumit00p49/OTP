@@ -148,6 +148,21 @@ def deposit_check_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def auto_deposit_keyboard(deposit_id: int) -> InlineKeyboardMarkup:
+    """Auto-verify deposit: 'I've Paid - Check' + Cancel."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✅ I've Paid — Check Now", callback_data=f"auto_check:{deposit_id}")
+    )
+    builder.row(
+        InlineKeyboardButton(text="📸 Pay Failed? Send Screenshot", callback_data="deposit_manual_fallback")
+    )
+    builder.row(
+        InlineKeyboardButton(text="❌ Cancel", callback_data="deposit_cancel")
+    )
+    return builder.as_markup()
+
+
 def admin_deposit_keyboard(deposit_id: int, user_id: int, amount: float) -> InlineKeyboardMarkup:
     """Admin approve/reject buttons."""
     builder = InlineKeyboardBuilder()

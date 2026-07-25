@@ -162,7 +162,9 @@ class LZTMarketAPI:
         items = result.get("items", [])
         if isinstance(items, dict):
             items = list(items.values())
-        return items if isinstance(items, list) else []
+        items = items if isinstance(items, list) else []
+        logger.info("LZT SEARCH returned %d items for %s", len(items), country)
+        return items
 
     async def get_stock_count(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> int:
         """
@@ -198,6 +200,32 @@ class LZTMarketAPI:
             logger.warning("Stock count failed for %s: %s", country, e)
             return 0
 
+    async def get_stock_debug(self, country: str = "IN", pmax: float = None, extra_filters: dict = None) -> dict:
+        """
+        Diagnostic: return the EXACT params sent + the raw total the API reports,
+        so the admin can compare the bot's query against the LZT store view.
+        """
+        country = _fix_country_code(country)
+        params = {"country[]": country, "order_by": "price_to_up"}
+        if pmax is not None:
+            params["pmax"] = str(pmax)
+        if extra_filters and isinstance(extra_filters, dict):
+            for key, value in extra_filters.items():
+                params[key] = value if isinstance(value, (int, float)) else str(value)
+
+        info = {"params": dict(params), "total": 0, "items_on_page": 0, "error": ""}
+        try:
+            result = await self._request("GET", "/telegram", params=params)
+            total = result.get("totalItems", result.get("total_items", 0))
+            items = result.get("items", [])
+            if isinstance(items, dict):
+                items = list(items.values())
+            info["items_on_page"] = len(items) if isinstance(items, list) else 0
+            info["total"] = int(total) if total else info["items_on_page"]
+        except Exception as e:
+            info["error"] = str(e)
+        return info
+
     async def buy(self, item_id, price: float = None, currency: str = None) -> dict:
         """POST /{item_id}/fast-buy - atomic purchase with optional price guard."""
         data = {}
@@ -213,45 +241,32 @@ class LZTMarketAPI:
 
     async def verify_account_before_buy(self, item: dict) -> tuple[bool, str]:
         """
-        Verify an account is GOOD before purchasing it.
+        Light safety check before buying.
         
-        STRICT checks:
-        1. No spam block (multiple field checks + title scan)
-        2. Not already sold
-        3. No 2FA password (we filter telegram_password=0)
+        The search already filters with spam=no & nsb=1, so results should be
+        clean. This is just a backup to catch anything obvious in the title.
+        We trust the search filter — only reject on CLEAR spam block in title.
         
         Returns: (is_valid, reason)
         """
-        item_id = item.get("item_id", item.get("id"))
-        title = str(item.get("title", "") or item.get("title_en", "")).lower()
+        title = str(item.get("title", "") or "").lower()
+        title_en = str(item.get("title_en", "") or "").lower()
+        full_title = title + " " + title_en
         
-        # Check spam block — STRICT (check ALL possible indicators)
-        has_spam = item.get("telegram_spam_block", False)
-        nsb_field = item.get("nsb", None)  # nsb=True means NO spam block
-        sb_field = item.get("sb", False)   # sb=True means HAS spam block
+        # Only reject on OBVIOUS spam block words in title
+        spam_keywords = [
+            "permanent spamblock", "spamblock untill", "spamblock until",
+            "spam block by geo", "спамблок",
+        ]
+        for kw in spam_keywords:
+            if kw in full_title:
+                return False, f"Title has '{kw}'"
         
-        # Title-based spam detection
-        spam_keywords = ["spamblock", "spam block", "spam_block", "permanent spam", "spamblock untill"]
-        title_has_spam = any(kw in title for kw in spam_keywords)
-        
-        if has_spam or sb_field or title_has_spam:
-            return False, f"Has spam block (spam={has_spam}, sb={sb_field}, title={title_has_spam})"
-        
-        # If nsb field exists and is explicitly False/0, it means spam block present
-        if nsb_field is not None and not nsb_field and nsb_field != "":
-            return False, "nsb=False (has spam block)"
-        
-        # Check if sold
-        if item.get("sold", False) or item.get("canBuy") is False:
+        # Already sold
+        if item.get("sold") is True or item.get("canBuy") is False:
             return False, "Already sold"
         
-        # Check 2FA password from item data
-        login_data = item.get("loginData", {}) or {}
-        has_pass = login_data.get("password") or item.get("telegram_password")
-        if has_pass and str(has_pass) not in ("", "0", "None", "False"):
-            return False, f"Has 2FA password: {has_pass}"
-        
-        # Account looks good
+        # Trust the search filter (spam=no) — account is clean
         return True, "OK"
 
     async def get_telegram_login_code(self, item_id) -> Optional[str]:

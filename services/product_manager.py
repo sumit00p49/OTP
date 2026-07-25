@@ -1,350 +1,261 @@
 """
-Product Manager - manages countries/products for the shop.
-Uses MongoDB for persistent storage (products survive restarts/redeploys).
-Fallback to local JSON file if MongoDB is not configured.
+Product Manager — countries/products stored in SQLite (same DB as users/orders).
 
-DEFAULT FILTERS (auto-applied to ALL countries):
-  - nsb=1 (No Spam Block - critical for OTP)
-  - telegram_password=0 (No 2FA password)
-  - eg=1 (Has Gmail/Email linked)
+No products.json file, no MongoDB. Everything is managed via the bot admin
+panel (Add / Remove / Edit Price / Edit Max LZT). Countries persist across
+restarts and git pulls, and can never break from JSON typos.
 
-Admin only needs to add country code, name, flag, price, max_lzt.
-Filters are applied AUTOMATICALLY.
+DEFAULT FILTERS (auto-applied to EVERY country search):
+  - nsb=1        (No Spam Block)
+  - spam=no      (No Spam Block)
+  - email=yes    (Email/Gmail linked)
+These match the tested lzt.market filter: "Spam block: No, Email linked".
+Per-country extra filters (in the 'filters' column) merge on top.
 """
 
+import sqlite3
 import json
 import os
 import logging
 from typing import Optional
 
+from config import DB_PATH
+
 logger = logging.getLogger(__name__)
 
-# ==================== DEFAULT FILTERS ====================
-# These are ALWAYS applied to every country search.
-# Admin doesn't need to set these manually!
+# Filters applied to every country automatically
 GLOBAL_DEFAULT_FILTERS = {
-    "nsb": 1,                # No spam block (MUST for OTP to work)
-    "telegram_password": 0,  # No 2FA password (easier login)
+    "nsb": 1,
+    "spam": "no",
+    "email": "yes",
 }
 
-# ==================== MongoDB Backend ====================
-_mongo_client = None
-_mongo_db = None
-_use_mongo = False
-
-PRODUCTS_FILE = "products.json"
-
-# Default product if nothing exists
+# Seed data used ONLY the first time (empty DB and no products.json to migrate).
+# After the first run the DB is the single source of truth — manage countries
+# via the bot admin panel. products.json is only a one-time seed.
 DEFAULT_PRODUCTS = [
-    {
-        "code": "IN",
-        "name": "India",
-        "flag": "\U0001f1ee\U0001f1f3",
-        "price": 26,
-        "max_lzt": 0.12,
-        "filters": {}
-    }
+    {"code": "IN", "name": "India", "flag": "\U0001f1ee\U0001f1f3", "price": 26, "max_lzt": 0.20, "filters": {}},
+    {"code": "US", "name": "United States", "flag": "\U0001f1fa\U0001f1f8", "price": 50, "max_lzt": 0.30, "filters": {}},
+    {"code": "BD", "name": "Bangladesh", "flag": "\U0001f1e7\U0001f1e9", "price": 20, "max_lzt": 0.18, "filters": {}},
+    {"code": "ID", "name": "Indonesia", "flag": "\U0001f1ee\U0001f1e9", "price": 25, "max_lzt": 0.18, "filters": {}},
+    {"code": "MM", "name": "Myanmar", "flag": "\U0001f1f2\U0001f1f2", "price": 22, "max_lzt": 0.18, "filters": {}},
+    {"code": "VN", "name": "Vietnam", "flag": "\U0001f1fb\U0001f1f3", "price": 30, "max_lzt": 0.18, "filters": {}},
+    {"code": "PK", "name": "Pakistan", "flag": "\U0001f1f5\U0001f1f0", "price": 30, "max_lzt": 0.18, "filters": {}},
 ]
 
+_LEGACY_JSON = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "products.json"
+)
 
-async def init_product_db():
-    """Initialize MongoDB connection for products (call once at startup)."""
-    global _mongo_client, _mongo_db, _use_mongo
 
-    from config import MONGO_URI
-    mongo_uri = MONGO_URI
-    if not mongo_uri:
-        logger.info("MONGO_URI not set in .env — Using local JSON file for products.")
-        _use_mongo = False
-        return
+def _conn() -> sqlite3.Connection:
+    """Open a short-lived sync SQLite connection (WAL-safe alongside aiosqlite)."""
+    c = sqlite3.connect(DB_PATH, timeout=10)
+    c.row_factory = sqlite3.Row
+    return c
 
+
+def _row_to_dict(row) -> dict:
+    """Convert a products row to the dict shape the rest of the bot expects."""
     try:
-        from motor.motor_asyncio import AsyncIOMotorClient
-        _mongo_client = AsyncIOMotorClient(mongo_uri, serverSelectionTimeoutMS=5000)
-        # Test connection
-        await _mongo_client.admin.command("ping")
-        _mongo_db = _mongo_client.get_database("tg_shop_bot")
-        _use_mongo = True
-        logger.info("MongoDB connected for product storage!")
-
-        # Migrate from JSON to Mongo if needed
-        await _migrate_json_to_mongo()
-    except ImportError:
-        logger.warning("motor not installed. Using JSON file. Install: pip install motor")
-        _use_mongo = False
-    except Exception as e:
-        logger.warning("MongoDB connection failed: %s. Using JSON file.", e)
-        _use_mongo = False
+        filters = json.loads(row["filters"]) if row["filters"] else {}
+    except (json.JSONDecodeError, TypeError):
+        filters = {}
+    return {
+        "code": row["code"],
+        "name": row["name"],
+        "flag": row["flag"],
+        "price": row["price"],
+        "max_lzt": row["max_lzt"],
+        "filters": filters if isinstance(filters, dict) else {},
+    }
 
 
-async def _migrate_json_to_mongo():
-    """If products.json exists and Mongo is empty, migrate data."""
-    if not _use_mongo or not _mongo_db:
-        return
 
-    collection = _mongo_db["products"]
-    count = await collection.count_documents({})
-    if count > 0:
-        return  # Already has data
+def init_products():
+    """
+    Create the products table if missing and seed it once.
+    Seeds from an existing products.json (migration) or DEFAULT_PRODUCTS.
+    Safe to call every startup — only seeds when the table is empty.
+    """
+    conn = _conn()
+    try:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS products (
+                code       TEXT PRIMARY KEY,
+                name       TEXT NOT NULL,
+                flag       TEXT DEFAULT '',
+                price      REAL NOT NULL,
+                max_lzt    REAL NOT NULL,
+                filters    TEXT DEFAULT '{}',
+                sort_order INTEGER DEFAULT 0
+            )"""
+        )
+        conn.commit()
 
-    # Load from JSON
-    if os.path.exists(PRODUCTS_FILE):
+        count = conn.execute("SELECT COUNT(*) FROM products").fetchone()[0]
+        if count == 0:
+            seed = _load_legacy_json() or DEFAULT_PRODUCTS
+            for i, p in enumerate(seed):
+                try:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO products "
+                        "(code, name, flag, price, max_lzt, filters, sort_order) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            str(p["code"]).upper(), p.get("name", p["code"]),
+                            p.get("flag", "\U0001f30d"), float(p.get("price", 0)),
+                            float(p.get("max_lzt", 0.15)),
+                            json.dumps(p.get("filters", {})), i,
+                        ),
+                    )
+                except Exception as e:
+                    logger.warning("Seed product %s failed: %s", p.get("code"), e)
+            conn.commit()
+            logger.info("Seeded %d products into DB.", len(seed))
+    finally:
+        conn.close()
+
+
+def _load_legacy_json() -> list:
+    """One-time migration source: read products.json if it exists."""
+    if os.path.exists(_LEGACY_JSON):
         try:
-            with open(PRODUCTS_FILE, "r") as f:
-                products = json.load(f)
-            if products:
-                await collection.insert_many(products)
-                logger.info("Migrated %d products from JSON to MongoDB.", len(products))
+            with open(_LEGACY_JSON, "r") as f:
+                data = json.load(f)
+            if isinstance(data, list) and data:
+                logger.info("Migrating %d products from products.json to DB.", len(data))
+                return data
         except Exception as e:
-            logger.error("Migration failed: %s", e)
+            logger.warning("Could not read legacy products.json: %s", e)
+    return []
 
 
-# ==================== CRUD Operations ====================
-
-def _load_products_json() -> list:
-    """Load products from local JSON file (fallback)."""
-    if os.path.exists(PRODUCTS_FILE):
-        try:
-            with open(PRODUCTS_FILE, "r") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
-            logger.error("Failed to load products.json: %s", e)
-    return DEFAULT_PRODUCTS.copy()
-
-
-def _save_products_json(products: list):
-    """Save products to local JSON file."""
-    with open(PRODUCTS_FILE, "w") as f:
-        json.dump(products, f, indent=2, ensure_ascii=False)
-
-
-async def get_all_products_async() -> list:
-    """Get all products (async - MongoDB or JSON)."""
-    if _use_mongo and _mongo_db:
-        try:
-            collection = _mongo_db["products"]
-            cursor = collection.find({}, {"_id": 0})
-            products = await cursor.to_list(length=100)
-            return products if products else DEFAULT_PRODUCTS.copy()
-        except Exception as e:
-            logger.error("Mongo get_all failed: %s", e)
-    return _load_products_json()
-
+# ==================== Read ====================
 
 def get_all_products() -> list:
-    """Get all products (sync - for keyboards that can't await)."""
-    # For sync context, always use JSON
-    return _load_products_json()
-
-
-async def get_product_async(code: str) -> Optional[dict]:
-    """Get a product by country code (async)."""
-    if _use_mongo and _mongo_db:
-        try:
-            collection = _mongo_db["products"]
-            product = await collection.find_one(
-                {"code": code.upper()}, {"_id": 0}
-            )
-            return product
-        except Exception as e:
-            logger.error("Mongo get_product failed: %s", e)
-    return get_product(code)
+    """All products, ordered."""
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM products ORDER BY sort_order, code"
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
 
 
 def get_product(code: str) -> Optional[dict]:
-    """Get a product by country code (sync)."""
-    for p in _load_products_json():
-        if p["code"].upper() == code.upper():
-            return p
-    return None
+    """One product by country code, or None."""
+    conn = _conn()
+    try:
+        r = conn.execute(
+            "SELECT * FROM products WHERE code = ?", (code.upper(),)
+        ).fetchone()
+        return _row_to_dict(r) if r else None
+    except sqlite3.OperationalError:
+        return None
+    finally:
+        conn.close()
 
 
-async def add_product_async(code: str, name: str, flag: str, price: float, max_lzt: float, extra_filters: dict = None) -> bool:
-    """Add a new product (async). Returns False if already exists."""
-    product_data = {
-        "code": code.upper(),
-        "name": name,
-        "flag": flag,
-        "price": price,
-        "max_lzt": max_lzt,
-        "filters": extra_filters or {},
-    }
 
-    if _use_mongo and _mongo_db:
-        try:
-            collection = _mongo_db["products"]
-            existing = await collection.find_one({"code": code.upper()})
-            if existing:
-                return False
-            await collection.insert_one(product_data)
-            # Also save to JSON as backup
-            _sync_to_json(product_data, action="add")
-            return True
-        except Exception as e:
-            logger.error("Mongo add_product failed: %s", e)
-
-    # Fallback to JSON
-    return add_product(code, name, flag, price, max_lzt, extra_filters or {})
-
+# ==================== Write ====================
 
 def add_product(code: str, name: str, flag: str, price: float, max_lzt: float, filters: dict) -> bool:
-    """Add a new product (sync/JSON). Returns False if already exists."""
-    products = _load_products_json()
-    for p in products:
-        if p["code"].upper() == code.upper():
-            return False
-
-    products.append({
-        "code": code.upper(),
-        "name": name,
-        "flag": flag,
-        "price": price,
-        "max_lzt": max_lzt,
-        "filters": filters,
-    })
-    _save_products_json(products)
-    return True
-
-
-async def remove_product_async(code: str) -> bool:
-    """Remove a product (async)."""
-    if _use_mongo and _mongo_db:
-        try:
-            collection = _mongo_db["products"]
-            result = await collection.delete_one({"code": code.upper()})
-            _sync_to_json({"code": code.upper()}, action="remove")
-            return result.deleted_count > 0
-        except Exception as e:
-            logger.error("Mongo remove failed: %s", e)
-    return remove_product(code)
+    """Add a new country. Returns False if it already exists."""
+    code = code.upper()
+    if get_product(code):
+        return False
+    conn = _conn()
+    try:
+        nxt = conn.execute("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM products").fetchone()[0]
+        conn.execute(
+            "INSERT INTO products (code, name, flag, price, max_lzt, filters, sort_order) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (code, name, flag, float(price), float(max_lzt), json.dumps(filters or {}), nxt),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error("add_product failed: %s", e)
+        return False
+    finally:
+        conn.close()
 
 
 def remove_product(code: str) -> bool:
-    """Remove a product (sync/JSON)."""
-    products = _load_products_json()
-    new_products = [p for p in products if p["code"].upper() != code.upper()]
-    if len(new_products) == len(products):
+    """Remove a country. Returns True if a row was deleted."""
+    conn = _conn()
+    try:
+        cur = conn.execute("DELETE FROM products WHERE code = ?", (code.upper(),))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error("remove_product failed: %s", e)
         return False
-    _save_products_json(new_products)
-    return True
-
-
-async def update_product_price_async(code: str, price: float) -> bool:
-    """Update price (async)."""
-    if _use_mongo and _mongo_db:
-        try:
-            collection = _mongo_db["products"]
-            result = await collection.update_one(
-                {"code": code.upper()},
-                {"$set": {"price": price}}
-            )
-            # Also update JSON
-            update_product_price(code, price)
-            return result.modified_count > 0
-        except Exception as e:
-            logger.error("Mongo update_price failed: %s", e)
-    return update_product_price(code, price)
+    finally:
+        conn.close()
 
 
 def update_product_price(code: str, price: float) -> bool:
-    """Update price (sync/JSON)."""
-    products = _load_products_json()
-    for p in products:
-        if p["code"].upper() == code.upper():
-            p["price"] = price
-            _save_products_json(products)
-            return True
-    return False
-
-
-async def update_product_filters_async(code: str, filters: dict) -> bool:
-    """Update filters (async)."""
-    if _use_mongo and _mongo_db:
-        try:
-            collection = _mongo_db["products"]
-            result = await collection.update_one(
-                {"code": code.upper()},
-                {"$set": {"filters": filters}}
-            )
-            update_product_filters(code, filters)
-            return result.modified_count > 0
-        except Exception as e:
-            logger.error("Mongo update_filters failed: %s", e)
-    return update_product_filters(code, filters)
-
-
-def update_product_filters(code: str, filters: dict) -> bool:
-    """Update filters (sync/JSON)."""
-    products = _load_products_json()
-    for p in products:
-        if p["code"].upper() == code.upper():
-            p["filters"] = filters
-            _save_products_json(products)
-            return True
-    return False
-
-
-async def update_product_max_lzt_async(code: str, max_lzt: float) -> bool:
-    """Update max LZT price (async)."""
-    if _use_mongo and _mongo_db:
-        try:
-            collection = _mongo_db["products"]
-            result = await collection.update_one(
-                {"code": code.upper()},
-                {"$set": {"max_lzt": max_lzt}}
-            )
-            update_product_max_lzt(code, max_lzt)
-            return result.modified_count > 0
-        except Exception as e:
-            logger.error("Mongo update_max_lzt failed: %s", e)
-    return update_product_max_lzt(code, max_lzt)
+    """Update the INR selling price."""
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "UPDATE products SET price = ? WHERE code = ?", (float(price), code.upper())
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error("update_product_price failed: %s", e)
+        return False
+    finally:
+        conn.close()
 
 
 def update_product_max_lzt(code: str, max_lzt: float) -> bool:
-    """Update max LZT price (sync/JSON)."""
-    products = _load_products_json()
-    for p in products:
-        if p["code"].upper() == code.upper():
-            p["max_lzt"] = max_lzt
-            _save_products_json(products)
-            return True
-    return False
+    """Update the max USD buy cap."""
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "UPDATE products SET max_lzt = ? WHERE code = ?", (float(max_lzt), code.upper())
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error("update_product_max_lzt failed: %s", e)
+        return False
+    finally:
+        conn.close()
+
+
+def update_product_filters(code: str, filters: dict) -> bool:
+    """Update per-country extra filters."""
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "UPDATE products SET filters = ? WHERE code = ?",
+            (json.dumps(filters or {}), code.upper()),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error("update_product_filters failed: %s", e)
+        return False
+    finally:
+        conn.close()
 
 
 def get_effective_filters(product: dict) -> dict:
     """
-    Get the EFFECTIVE filters for a product = GLOBAL defaults + product-specific overrides.
-    
-    This is what actually gets sent to the LZT API.
-    Global defaults: nsb=1, telegram_password=0, eg=1
-    Product can ADD extra filters (like origin[]) but cannot disable globals unless explicitly overridden.
+    EFFECTIVE filters sent to LZT = global defaults + this country's extras.
+    Global: nsb=1, spam=no, email=yes. Per-country filters override on top.
     """
-    # Start with global defaults
     effective = GLOBAL_DEFAULT_FILTERS.copy()
-    
-    # Merge product-specific filters (overrides globals if same key)
     product_filters = product.get("filters", {})
-    if product_filters:
+    if product_filters and isinstance(product_filters, dict):
         effective.update(product_filters)
-    
     return effective
-
-
-def _sync_to_json(product_data: dict, action: str):
-    """Keep JSON file in sync with MongoDB (backup)."""
-    try:
-        products = _load_products_json()
-        if action == "add":
-            # Remove _id if present
-            clean = {k: v for k, v in product_data.items() if k != "_id"}
-            products.append(clean)
-        elif action == "remove":
-            products = [p for p in products if p["code"].upper() != product_data["code"].upper()]
-        _save_products_json(products)
-    except Exception:
-        pass
-
-
-# Initialize JSON file if not exists
-if not os.path.exists(PRODUCTS_FILE):
-    _save_products_json(DEFAULT_PRODUCTS)

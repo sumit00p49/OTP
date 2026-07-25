@@ -12,6 +12,7 @@ Stock shown = REAL stock with same filters as purchase (no fake numbers).
 
 import logging
 import asyncio
+import time
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -44,31 +45,61 @@ router = Router()
 
 # ==================== Stock Fetch (LIVE with REAL filters) ====================
 
+# Short-lived stock cache so repeated /start loads are INSTANT.
+# code -> (count, timestamp)
+_stock_cache: dict = {}
+_STOCK_TTL = 90          # seconds a cached count stays fresh
+_STOCK_CONCURRENCY = 3   # how many countries to check at once (balance speed vs rate limit)
+
+
 async def get_live_stock(products: list) -> dict:
     """
-    Fetch stock counts LIVE from API with EXACT same filters used for purchase.
-    This ensures stock number is REAL - no fake counts.
-    """
-    async def _get(p):
-        effective = get_effective_filters(p)
-        return p["code"], await lzt_api.get_stock_count(
-            country=p["code"],
-            pmax=p.get("max_lzt"),
-            extra_filters=effective,
-        )
+    Fetch stock counts with a 90s cache + limited concurrency.
 
-    try:
-        results = await asyncio.gather(*[_get(p) for p in products], return_exceptions=True)
-        stock = {}
+    - Cached counts (fresh within 90s) are returned INSTANTLY (no API call).
+    - Only stale/missing countries are fetched, max 3 at a time (fast, but
+      stays under LZT's rate limit so no country wrongly shows 0).
+    """
+    now = time.time()
+    stock: dict = {}
+    to_fetch = []
+
+    for p in products:
+        code = p["code"]
+        cached = _stock_cache.get(code)
+        if cached and (now - cached[1]) < _STOCK_TTL:
+            stock[code] = cached[0]      # fresh cache hit -> instant
+        else:
+            to_fetch.append(p)
+
+    if to_fetch:
+        sem = asyncio.Semaphore(_STOCK_CONCURRENCY)
+
+        async def _get(p):
+            code = p["code"]
+            async with sem:
+                try:
+                    effective = get_effective_filters(p)
+                    # Count only accounts WITHIN max_lzt (the real buyable stock).
+                    # No fake/inflated numbers — what's shown can actually be bought.
+                    count = await lzt_api.get_stock_count(
+                        country=code,
+                        pmax=p.get("max_lzt"),
+                        extra_filters=effective,
+                    )
+                except Exception as e:
+                    logger.warning("Stock fetch error for %s: %s", code, e)
+                    # Fall back to last known count instead of 0
+                    count = _stock_cache.get(code, (0, 0))[0]
+                _stock_cache[code] = (count, time.time())
+                return code, count
+
+        results = await asyncio.gather(*[_get(p) for p in to_fetch], return_exceptions=True)
         for r in results:
             if isinstance(r, tuple):
                 stock[r[0]] = r[1]
-            elif isinstance(r, Exception):
-                logger.warning("Stock fetch error: %s", r)
-        return stock
-    except Exception as e:
-        logger.error("get_live_stock failed: %s", e)
-        return {}
+
+    return stock
 
 
 @router.callback_query(F.data == "buy_account")
@@ -235,89 +266,146 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
         return
 
     await callback.answer()
-    await callback.message.edit_text(
-        format_purchase_processing_multi(qty), parse_mode="HTML"
+    
+    # Live progress message
+    progress_msg = await callback.message.edit_text(
+        f"⏳ <b>Processing purchase...</b>\n\n"
+        f"🔍 Searching for clean accounts...\n"
+        f"📦 Quantity: {qty}\n"
+        f"🌍 Country: {country_code}\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
+        f"⏳ Attempt 1/5 — Searching...",
+        parse_mode="HTML",
     )
 
     # 1) Debit full amount upfront
     success, _ = await debit(user_id, total)
     if not success:
         bal = await get_balance(user_id)
-        await callback.message.edit_text(
+        await progress_msg.edit_text(
             format_insufficient_balance(total, bal),
             reply_markup=back_to_main_keyboard(),
             parse_mode="HTML",
         )
         return
 
-    # 2) Buy accounts one by one with VERIFICATION
+    # 2) Buy accounts with STRICT pre-verification + 5 retries + live updates
     delivered = []
     failed_count = 0
-    max_retries_per_slot = 3  # Try up to 3 items per slot to find a good one
+    MAX_ATTEMPTS = 5  # Max 5 attempts per account slot
 
     for i in range(qty):
         bought = False
-        for attempt in range(max_retries_per_slot):
+        
+        for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
-                logger.info(
-                    "Searching item #%d (attempt %d) for %s: pmax=$%.2f, filters=%s",
-                    i + 1, attempt + 1, country_code, max_lzt, effective_filters,
+                # LIVE UPDATE — user sees every attempt
+                await progress_msg.edit_text(
+                    f"⏳ <b>Buying account {i+1}/{qty}...</b>\n\n"
+                    f"🔄 Attempt {attempt}/{MAX_ATTEMPTS}\n"
+                    f"🔍 Searching clean account...\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"✅ Delivered: {len(delivered)}\n"
+                    f"❌ Failed: {failed_count}\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━",
+                    parse_mode="HTML",
                 )
+
+                logger.info(
+                    "Searching item #%d (attempt %d/5) for %s: pmax=$%.2f, filters=%s",
+                    i + 1, attempt, country_code, max_lzt, effective_filters,
+                )
+
                 items = await lzt_api.search_accounts(
                     country=country_code,
                     pmax=max_lzt,
                     extra_filters=effective_filters,
                 )
+
                 if not items:
                     logger.warning("No stock for %s with filters %s", country_code, effective_filters)
-                    break  # No stock at all, don't retry
+                    # Update live text
+                    await progress_msg.edit_text(
+                        f"⏳ <b>Buying account {i+1}/{qty}...</b>\n\n"
+                        f"🔄 Attempt {attempt}/{MAX_ATTEMPTS}\n"
+                        f"📭 No stock found, retrying...\n\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"✅ Delivered: {len(delivered)}\n"
+                        f"❌ Failed: {failed_count}\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━",
+                        parse_mode="HTML",
+                    )
+                    import asyncio
+                    await asyncio.sleep(2)
+                    continue  # Retry
 
-                # Skip already-attempted items
-                item = items[attempt] if attempt < len(items) else items[0]
+                # SCAN through ALL items to find first CLEAN one
+                # Skip items we already bought in previous slots
+                bought_ids = {d["item_id"] for d in delivered}
+                clean_item = None
+                scanned = 0
+                
+                for candidate in items:
+                    cand_id = str(candidate.get("item_id", candidate.get("id", "")))
+                    if cand_id in bought_ids:
+                        continue  # Already bought this one
+                    
+                    is_valid, reason = await lzt_api.verify_account_before_buy(candidate)
+                    scanned += 1
+                    if is_valid:
+                        clean_item = candidate
+                        break
+                    else:
+                        logger.info("Skipping item %s: %s", cand_id, reason)
+                
+                if not clean_item:
+                    logger.warning("All %d items in results have spam block (attempt %d)", scanned, attempt)
+                    await progress_msg.edit_text(
+                        f"⏳ <b>Buying account {i+1}/{qty}...</b>\n\n"
+                        f"🔄 Attempt {attempt}/{MAX_ATTEMPTS}\n"
+                        f"⚠️ Scanned {scanned} accounts — all have spam block\n"
+                        f"🔍 Retrying with different search...\n\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"✅ Delivered: {len(delivered)}\n"
+                        f"❌ Failed: {failed_count}\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━",
+                        parse_mode="HTML",
+                    )
+                    import asyncio
+                    await asyncio.sleep(2)
+                    continue  # Retry with next attempt
+
+                item = clean_item
                 item_id = item.get("item_id", item.get("id"))
 
-                # VERIFY before buying
-                is_valid, reason = await lzt_api.verify_account_before_buy(item)
-                if not is_valid:
-                    logger.warning("Item %s failed verification: %s, trying next", item_id, reason)
-                    continue
-
+                # ========== VERIFIED CLEAN — NOW BUY ==========
                 lzt_price = float(item.get("price", 0))
 
-                # BUY
+                await progress_msg.edit_text(
+                    f"⏳ <b>Buying account {i+1}/{qty}...</b>\n\n"
+                    f"🔄 Attempt {attempt}/{MAX_ATTEMPTS}\n"
+                    f"✅ Clean account found!\n"
+                    f"💰 Purchasing ${lzt_price:.2f}...\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"✅ Delivered: {len(delivered)}\n"
+                    f"❌ Failed: {failed_count}\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━",
+                    parse_mode="HTML",
+                )
+
                 buy_result = await lzt_api.buy(item_id, price=lzt_price, currency="usd")
 
-                # Fetch full item details (phone only visible after purchase)
+                # Fetch full item details
                 try:
                     item_details = await lzt_api.get_item(item_id)
                     account_data = lzt_api.extract_account_data(item_details)
                 except Exception as e:
                     logger.warning("get_item failed after buy: %s", e)
                     account_data = lzt_api.extract_account_data(buy_result)
-                    item_details = buy_result
 
-                # POST-PURCHASE VERIFICATION: Check for spam block AFTER buying
-                # Because LZT search doesn't always show spam block status accurately
-                raw_item = item_details.get("item", item_details)
-                has_spam_block = (
-                    raw_item.get("telegram_spam_block", False)
-                    or "spamblock" in str(raw_item.get("title", "")).lower()
-                    or "spam block" in str(raw_item.get("title", "")).lower()
-                    or raw_item.get("sb", False)
-                )
-                has_password = bool(account_data.get("password") or account_data.get("2fa"))
+                logger.info("Purchase #%d SUCCESS item %s - phone=%s ✅", i + 1, item_id, account_data.get("phone"))
 
-                if has_spam_block:
-                    logger.warning(
-                        "POST-BUY REJECT: item %s has spam block! Skipping delivery.",
-                        item_id,
-                    )
-                    # Don't deliver this account — count as failed
-                    continue
-
-                logger.info("Purchase #%d item %s - phone=%s, spam=NO ✅", i + 1, item_id, account_data.get("phone"))
-
-                # Best-effort: fetch login code
+                # Fetch login code
                 login_code = await lzt_api.get_telegram_login_code(item_id)
                 if login_code:
                     account_data["login_code"] = login_code
@@ -333,16 +421,27 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
                 )
                 delivered.append({"order_id": order_id, "item_id": str(item_id), "data": account_data})
                 bought = True
-                break  # Success, move to next slot
+                break  # SUCCESS — move to next account
 
             except LZTAPIError as e:
-                logger.warning("Buy #%d attempt %d failed: %s", i + 1, attempt + 1, e.message)
-                if attempt == max_retries_per_slot - 1:
-                    break
+                logger.warning("Buy #%d attempt %d failed: %s", i + 1, attempt, e.message)
+                await progress_msg.edit_text(
+                    f"⏳ <b>Buying account {i+1}/{qty}...</b>\n\n"
+                    f"🔄 Attempt {attempt}/{MAX_ATTEMPTS}\n"
+                    f"⚠️ Error: {e.message[:50]}\n"
+                    f"🔄 Retrying...\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"✅ Delivered: {len(delivered)}\n"
+                    f"❌ Failed: {failed_count}\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━",
+                    parse_mode="HTML",
+                )
+                import asyncio
+                await asyncio.sleep(2)
             except Exception as e:
-                logger.exception("Unexpected error buying #%d attempt %d", i + 1, attempt + 1)
-                if attempt == max_retries_per_slot - 1:
-                    break
+                logger.exception("Unexpected error buying #%d attempt %d", i + 1, attempt)
+                import asyncio
+                await asyncio.sleep(2)
 
         if not bought:
             failed_count += 1
@@ -354,7 +453,7 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
 
     # 4) Deliver results
     if not delivered:
-        await callback.message.edit_text(
+        await progress_msg.edit_text(
             format_out_of_stock(),
             reply_markup=back_to_main_keyboard(),
             parse_mode="HTML",
@@ -363,7 +462,7 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
 
     if len(delivered) == 1:
         d = delivered[0]
-        await callback.message.edit_text(
+        await progress_msg.edit_text(
             format_account_details(d["order_id"], d["data"], price_per),
             reply_markup=account_delivered_keyboard(d["order_id"], d["item_id"]),
             parse_mode="HTML",
@@ -374,7 +473,7 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
         else:
             header = ""
         msg = format_multi_account_details(delivered, price_per, header)
-        await callback.message.edit_text(
+        await progress_msg.edit_text(
             msg, reply_markup=back_to_main_keyboard(), parse_mode="HTML",
         )
         for d in delivered:

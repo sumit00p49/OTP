@@ -96,6 +96,34 @@ async def init_db():
     except Exception:
         pass
 
+    # Auto-payment verification columns on deposits
+    try:
+        await db.execute("ALTER TABLE deposits ADD COLUMN unique_amount REAL DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE deposits ADD COLUMN utr TEXT DEFAULT ''")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE deposits ADD COLUMN verify_method TEXT DEFAULT 'manual'")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE deposits ADD COLUMN note TEXT DEFAULT ''")
+    except Exception:
+        pass
+
+    # Track used UTRs so the same payment can't be claimed twice
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS used_utrs (
+            utr TEXT PRIMARY KEY,
+            deposit_id INTEGER,
+            amount REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     await db.commit()
 
 

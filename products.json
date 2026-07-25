@@ -4,31 +4,39 @@
     "name": "India",
     "flag": "🇮🇳",
     "price": 26,
-    "max_lzt": 0.13,
+    "max_lzt": 0.20,
     "filters": {}
   },
   {
     "code": "US",
-    "name": "UNITED STATES",
+    "name": "United States",
     "flag": "🇺🇸",
-    "price": 40,
-    "max_lzt": 0.20,
+    "price": 50,
+    "max_lzt": 0.30,
+    "filters": {}
+  },
+  {
+    "code": "BD",
+    "name": "Bangladesh",
+    "flag": "🇧🇩",
+    "price": 20,
+    "max_lzt": 0.18,
     "filters": {}
   },
   {
     "code": "ID",
     "name": "Indonesia",
     "flag": "🇮🇩",
-    "price": 35,
-    "max_lzt": 0.15,
+    "price": 25,
+    "max_lzt": 0.18,
     "filters": {}
   },
   {
     "code": "MM",
     "name": "Myanmar",
     "flag": "🇲🇲",
-    "price": 26,
-    "max_lzt": 0.14,
+    "price": 22,
+    "max_lzt": 0.18,
     "filters": {}
   },
   {
@@ -36,7 +44,15 @@
     "name": "Vietnam",
     "flag": "🇻🇳",
     "price": 30,
-    "max_lzt": 0.15,
+    "max_lzt": 0.18,
+    "filters": {}
+  },
+  {
+    "code": "PK",
+    "name": "Pakistan",
+    "flag": "🇵🇰",
+    "price": 30,
+    "max_lzt": 0.18,
     "filters": {}
   }
 
