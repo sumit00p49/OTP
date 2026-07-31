@@ -350,10 +350,30 @@ def format_order_list_header(count: int) -> str:
 
 
 def format_order_detail(order: dict) -> str:
-    """Format single order detail."""
+    """Format single order detail with correct country + clean date."""
     order_id = order.get("order_id", "N/A")
     amount = order.get("amount_paid", 0)
-    date = order.get("created_at", "N/A")
+    raw_date = order.get("created_at", "N/A")
+    country_code = order.get("country", "")
+
+    # Clean date format: "26 Jul 2026, 06:18 PM"
+    date_str = str(raw_date)[:16]
+    try:
+        from datetime import datetime
+        dt = datetime.fromisoformat(str(raw_date).replace("Z", ""))
+        date_str = dt.strftime("%d %b %Y, %I:%M %p")
+    except Exception:
+        pass
+
+    # Get country name + flag from DB
+    country_label = f"🌍 {country_code}"
+    try:
+        from services.product_manager import get_product
+        p = get_product(country_code) if country_code else None
+        if p:
+            country_label = f"{p.get('flag', '🌍')} {p.get('name', country_code)}"
+    except Exception:
+        pass
 
     account_data = {}
     raw = order.get("account_data", "{}")
@@ -375,8 +395,8 @@ def format_order_detail(order: dict) -> str:
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"🆔 Order: <b>{order_id}</b>\n"
         f"💵 Paid: ₹{amount:.0f}\n"
-        f"🇮🇳 Country: India\n"
-        f"📅 Date: {date}\n\n"
+        f"{country_label}\n"
+        f"📅 {date_str}\n\n"
         "📱 <b>Account Info:</b>\n"
         f"📞 Phone: <code>{phone}</code>\n"
     )

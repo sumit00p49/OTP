@@ -102,26 +102,43 @@ async def get_live_stock(products: list) -> dict:
     return stock
 
 
+COUNTRIES_PER_PAGE = 7
+
+
 @router.callback_query(F.data == "buy_account")
 async def buy_account_start(callback: CallbackQuery, state: FSMContext):
-    """Show country/product selection with REAL stock counts."""
+    """Show page 0 of country/product selection."""
     await state.clear()
+    await _show_buy_page(callback, page=0)
 
+
+@router.callback_query(F.data.startswith("buy_page:"))
+async def buy_page(callback: CallbackQuery):
+    """Handle pagination on the buy-account country list."""
+    page = int(callback.data.split(":")[1])
+    await _show_buy_page(callback, page=page)
+
+
+async def _show_buy_page(callback: CallbackQuery, page: int = 0):
+    """Render one page of the country list with stock counts."""
     products = get_all_products()
     stock_counts = await get_live_stock(products)
+
+    total = len(products)
+    start = page * COUNTRIES_PER_PAGE
+    end = start + COUNTRIES_PER_PAGE
+    page_products = products[start:end]
 
     from aiogram.utils.keyboard import InlineKeyboardBuilder
     from aiogram.types import InlineKeyboardButton
     builder = InlineKeyboardBuilder()
 
-    for p in products:
+    for p in page_products:
         flag = p.get("flag", "\U0001f30d")
         name = p.get("name", p["code"])
         price = p.get("price", 0)
         code = p["code"]
         stock = stock_counts.get(code, 0)
-
-        # Show stock accurately - 0 means genuinely out of stock
         stock_text = f"{stock} in stock" if stock > 0 else "Out of stock"
         builder.row(
             InlineKeyboardButton(
@@ -130,8 +147,17 @@ async def buy_account_start(callback: CallbackQuery, state: FSMContext):
             )
         )
 
+    # Pagination buttons
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(text="\u25c0\ufe0f Prev", callback_data=f"buy_page:{page - 1}"))
+    if end < total:
+        nav.append(InlineKeyboardButton(text="Next \u25b6\ufe0f", callback_data=f"buy_page:{page + 1}"))
+    if nav:
+        builder.row(*nav)
+
     builder.row(
-        InlineKeyboardButton(text="\u2b05\ufe0f \U0001d5d5\U0001d5ee\U0001d5f0\U0001d5f8", callback_data="back_main")
+        InlineKeyboardButton(text="\u2b05\ufe0f Back", callback_data="back_main")
     )
 
     await callback.message.edit_text(
