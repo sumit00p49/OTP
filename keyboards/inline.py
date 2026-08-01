@@ -146,14 +146,8 @@ def deposit_check_keyboard() -> InlineKeyboardMarkup:
 
 
 def auto_deposit_keyboard(deposit_id: int) -> InlineKeyboardMarkup:
-    """Auto-verify deposit: 'I've Paid - Check' + Cancel."""
+    """Auto-verify deposit: only Cancel button (auto-credits via Gmail poller)."""
     builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text="✅ I've Paid — Check Now", callback_data=f"auto_check:{deposit_id}")
-    )
-    builder.row(
-        InlineKeyboardButton(text="📸 Pay Failed? Send Screenshot", callback_data="deposit_manual_fallback")
-    )
     builder.row(
         InlineKeyboardButton(text="❌ Cancel", callback_data="deposit_cancel")
     )
