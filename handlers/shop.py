@@ -149,17 +149,13 @@ async def _show_buy_page(callback: CallbackQuery, page: int = 0):
             )
         )
 
-    # Pagination buttons — 3 in a row: ◀️ Previous | 🏠 Menu | Next ▶️
+    # Pagination buttons — only show what's needed
     nav = []
     if page > 0:
         nav.append(InlineKeyboardButton(text="\u25c0\ufe0f Previous", callback_data=f"buy_page:{page - 1}"))
-    else:
-        nav.append(InlineKeyboardButton(text="\u25c0\ufe0f Previous", callback_data="noop"))
     nav.append(InlineKeyboardButton(text="\U0001f3e0 Menu", callback_data="back_main"))
     if end < total:
         nav.append(InlineKeyboardButton(text="Next \u25b6\ufe0f", callback_data=f"buy_page:{page + 1}"))
-    else:
-        nav.append(InlineKeyboardButton(text="Next \u25b6\ufe0f", callback_data="noop"))
     builder.row(*nav)
 
     await callback.message.edit_text(
