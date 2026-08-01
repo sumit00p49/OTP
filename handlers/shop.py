@@ -140,8 +140,8 @@ async def _show_buy_page(callback: CallbackQuery, page: int = 0):
         code = p["code"]
         stock = stock_counts.get(code, 0)
         stock_text = f"{stock} in stock" if stock > 0 else "Out of stock"
-        # Full-width button text — extra padding to stretch button wider
-        btn_text = f"{flag}  {name}                —  \u20b9{price:.0f}  ({stock_text})"
+        # Clean compact format (Telegram can't align proportional fonts with spaces)
+        btn_text = f"{flag} {name} • \u20b9{price:.0f} • {stock_text}"
         builder.row(
             InlineKeyboardButton(
                 text=btn_text,
