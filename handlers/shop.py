@@ -140,25 +140,27 @@ async def _show_buy_page(callback: CallbackQuery, page: int = 0):
         code = p["code"]
         stock = stock_counts.get(code, 0)
         stock_text = f"{stock} in stock" if stock > 0 else "Out of stock"
+        # Full-width button text with proper spacing
+        btn_text = f"{flag}  {name}  —  \u20b9{price:.0f}  ({stock_text})"
         builder.row(
             InlineKeyboardButton(
-                text=f"{flag} {name}  \u2014  \u20b9{price:.0f}  ({stock_text})",
+                text=btn_text,
                 callback_data=f"select_country:{code}",
             )
         )
 
-    # Pagination buttons
+    # Pagination buttons — 3 in a row: ◀️ Previous | 🏠 Menu | Next ▶️
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton(text="\u25c0\ufe0f Prev", callback_data=f"buy_page:{page - 1}"))
+        nav.append(InlineKeyboardButton(text="\u25c0\ufe0f Previous", callback_data=f"buy_page:{page - 1}"))
+    else:
+        nav.append(InlineKeyboardButton(text="\u25c0\ufe0f Previous", callback_data="noop"))
+    nav.append(InlineKeyboardButton(text="\U0001f3e0 Menu", callback_data="back_main"))
     if end < total:
         nav.append(InlineKeyboardButton(text="Next \u25b6\ufe0f", callback_data=f"buy_page:{page + 1}"))
-    if nav:
-        builder.row(*nav)
-
-    builder.row(
-        InlineKeyboardButton(text="\u2b05\ufe0f Back", callback_data="back_main")
-    )
+    else:
+        nav.append(InlineKeyboardButton(text="Next \u25b6\ufe0f", callback_data="noop"))
+    builder.row(*nav)
 
     await callback.message.edit_text(
         format_buy_country_select(),
