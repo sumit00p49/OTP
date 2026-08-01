@@ -123,6 +123,12 @@ def get_product(code: str) -> dict:
 # Leave empty to disable force join
 FORCE_JOIN_CHANNEL = os.getenv("FORCE_JOIN_CHANNEL", "")
 
+# ==================== Log Channel ====================
+# Channel/Group ID where the bot posts "NEW ACCOUNT SOLD" messages.
+# Get by forwarding a message from the channel to @userinfobot
+# Leave empty or 0 to disable.
+LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID", "0"))
+
 # ==================== Daily Report ====================
 # Send daily report at this hour (24h format, server timezone)
 DAILY_REPORT_HOUR = int(os.getenv("DAILY_REPORT_HOUR", "23"))

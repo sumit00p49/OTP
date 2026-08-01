@@ -465,3 +465,30 @@ def format_support() -> str:
         "━━━━━━━━━━━━━━━━━━━━━\n"
         "💡 Have your User ID and Order ID ready."
     )
+
+
+
+# ==================== Log Channel ====================
+
+def format_sale_log(user_name: str, country_name: str, country_flag: str, phone: str) -> str:
+    """Format the sale log message for the log channel."""
+    # Hide middle digits of phone: 919601886965 -> 9196****6965
+    if phone and len(phone) > 6:
+        visible_start = phone[:4]
+        visible_end = phone[-4:]
+        hidden = "x" * (len(phone) - 8)
+        masked_phone = f"{visible_start}{hidden}{visible_end}"
+    else:
+        masked_phone = phone or "N/A"
+
+    return (
+        "🚀 <b>NEW ACCOUNT SOLD!</b>\n"
+        "\n"
+        f"👤 User: {user_name}\n"
+        f"📦 Item: Telegram Account\n"
+        f"📍 Region: {country_flag} {country_name}\n"
+        f"📱 Number: <code>{masked_phone}</code>\n"
+        f"⚡ Status: Verified & Delivered\n"
+        "\n"
+        "🤖 Always use @ApexStoresBot"
+    )

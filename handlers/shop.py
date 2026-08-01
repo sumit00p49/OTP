@@ -507,6 +507,19 @@ async def confirm_buy(callback: CallbackQuery, state: FSMContext):
                 parse_mode="HTML",
             )
 
+    # 5) Send sale log to log channel
+    from config import LOG_CHANNEL_ID
+    from utils.formatters import format_sale_log
+    if LOG_CHANNEL_ID and LOG_CHANNEL_ID != 0:
+        user_name = callback.from_user.first_name or "User"
+        for d in delivered:
+            try:
+                phone = d["data"].get("phone", "N/A")
+                log_msg = format_sale_log(user_name, product.get("name", country_code), product.get("flag", "🌍"), phone)
+                await callback.bot.send_message(LOG_CHANNEL_ID, log_msg, parse_mode="HTML")
+            except Exception as e:
+                logger.warning("Failed to send sale log: %s", e)
+
 
 @router.callback_query(F.data == "account_ack")
 async def account_acknowledged(callback: CallbackQuery, state: FSMContext):
